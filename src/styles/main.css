@@ -1,0 +1,31 @@
+/* Tailwind v4 入口：令牌映射到 Tailwind 主题（值全部来自 tokens.css，禁止在此新增色值/间距） */
+@import 'tailwindcss';
+@import './tokens.css';
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-panel-dark: var(--panel-dark);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-ink: var(--ink);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-yellow: var(--yellow);
+  --color-yellow-2: var(--yellow-2);
+  --color-green: var(--green);
+  --color-red: var(--red);
+  --color-orange: var(--orange);
+
+  --font-sans: var(--sans);
+  --font-display-cjk: var(--display-cjk);
+  --font-display-wide: var(--display-wide);
+  --font-latin: var(--latin);
+  --font-numeric: var(--numeric);
+  --font-mono: var(--mono);
+
+  --shadow-panel: var(--shadow-panel);
+  --shadow-dark: var(--shadow-dark);
+}

@@ -1,0 +1,65 @@
+/* from: grad  // Research Workbench / Industrial Field UI — 设计令牌 + 字体 + 全局底座
+   file: extracted-components/theme/grad-theme.css（素材库唯一令牌源，逐字移植）
+   移植说明（M0-4）:
+   - @font-face 的 src 由原相对路径（../../grad-research-workbench-main/...）改为 /fonts/<同名文件>，字体文件已拷贝至 public/fonts/；
+   - 原 body { overflow: hidden } 为 Electron 应用壳行为，网页需要滚动，改为页面容器自行控制滚动；
+   - 原 button/.nav-item 的 -webkit-app-region（Electron 拖拽区）对网页无意义，不移植；
+   - 原「官方角色字体族」段落中挂在 grad 组件类（.drawer-title 等）上的规则不在此移植，随对应组件在 M3/M4 移植时带上；
+   - 其余令牌值与规则逐字一致，未做任何调整。 */
+
+/* ---- 字体（@font-face） ---- */
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("/fonts/HarmonyOS_Sans_SC_Regular.3848ad.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("/fonts/HarmonyOS_Sans_SC_Medium.fa43c4.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("/fonts/HarmonyOS_Sans_SC_Bold.50b93a.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("/fonts/HarmonyOS_Sans_SC_Black.e135b0.woff2") format("woff2"); font-weight: 900; font-display: swap; }
+@font-face { font-family: "Novecento Wide"; src: url("/fonts/Novecentosanswide-Medium.748604.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Novecento Wide"; src: url("/fonts/Novecentosanswide-DemiBold.089c2d.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Novecento Wide"; src: url("/fonts/Novecentosanswide-Bold.7ac6f1.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Gilroy"; src: url("/fonts/Gilroy-Light.9981d6.woff2") format("woff2"); font-weight: 300; font-display: swap; }
+@font-face { font-family: "Gilroy"; src: url("/fonts/Gilroy-Medium.376b06.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Space Grotesk"; src: url("/fonts/SpaceGrotesk.edd157.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Roboto Endfield"; src: url("/fonts/Roboto-Regular.978751.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+
+/* ---- 设计令牌（:root） ---- */
+:root {
+  --bg: #111316;
+  --bg-deep: #090b0d;
+  --panel: #f3f3f0;
+  --panel-2: #ffffff;
+  --panel-dark: #1a1d21;
+  --line: #383d43;
+  --line-soft: rgba(255, 255, 255, .1);
+  --ink: #0a0b0d;
+  --text: #f6f7f3;
+  --muted: #9b9fa5;
+  --yellow: #fff44f;
+  --yellow-2: #d9cd00;
+  --green: #8eef5b;
+  --red: #ff625d;
+  --orange: #f5a623;
+  --display-cjk: "HarmonyOS Sans SC", "PingFang SC", sans-serif;
+  --display-wide: "Novecento Wide", "Arial Narrow", sans-serif;
+  --sans: "HarmonyOS Sans SC", "PingFang SC", sans-serif;
+  --latin: "Gilroy", "Roboto Endfield", sans-serif;
+  --numeric: "Space Grotesk", "Novecento Wide", sans-serif;
+  --mono: "Space Grotesk", "SFMono-Regular", Consolas, monospace;
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, .14) inset, 0 14px 28px rgba(0, 0, 0, .3), 8px 8px 0 rgba(0, 0, 0, .48), 10px 10px 0 rgba(255, 244, 79, .22);
+  --shadow-dark: 0 1px 0 rgba(255, 255, 255, .08) inset, 0 18px 42px rgba(0, 0, 0, .46), 6px 7px 0 #050607, 8px 9px 0 rgba(255, 244, 79, .28);
+}
+
+/* ---- 全局底座（reset / 滚动条） ---- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg-deep);
+  color: var(--text);
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: #090a0c; }
+::-webkit-scrollbar-thumb { background: var(--yellow); border: 2px solid #090a0c; }
+
+/* ---- 官方角色字体族（网页可用的通用元素部分；组件类规则随组件移植） ---- */
+h2, h3, h4 { font-family: var(--display-cjk); font-weight: 700; }
