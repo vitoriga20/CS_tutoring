@@ -113,6 +113,13 @@ describe('TC-VIEW-004 详情页联系弹层', () => {
     await waitFor(() => expect(screen.getByText('gig-wx-777')).toBeTruthy());
     expect(screen.queryByText('admin-wx-001')).toBeNull();
   });
+
+  it('操作区提供「保存二维码」与「复制微信号」两个按钮（v0.3.3 UI 调整，无矩阵 ID）', async () => {
+    apiGetMock.mockResolvedValue(SITE_OK);
+    withProviders(<ContactModal gig={makeGig()} onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: /保存二维码/ })).toBeTruthy());
+    expect(screen.getByRole('button', { name: /复制微信号/ })).toBeTruthy();
+  });
 });
 
 describe('TC-VIEW-007 弹层三级回退（v0.3 发布者资料）', () => {

@@ -1,9 +1,11 @@
 // 联系管理员弹层（T-M3-4，契约：spec.md Gherkin「详情页联系弹层」+ P-GIG-04 v0.3 三级回退）
 // 弹壳样式为移植的 grad .modal（浅色面板 + 黄顶横 + 硬投影）；二维码为普通 <img>，
 // 保证微信内置浏览器长按可识别（checklist §4）。
+// v0.3.3：操作区分「保存二维码」与「复制微信号」两按钮。H5 无一键存相册能力（JS-SDK 排除），
+// 保存 = fetch blob 触发浏览器下载（PC/安卓生效）；微信 X5 拦截下载时降级新窗打开原图供长按。
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, Download } from 'lucide-react';
 import { apiGet } from '../../services/api';
 import { resolveContactTarget } from '../../services/contact';
 import type { GigDetail, SiteConfig } from '../../services/types';
@@ -73,6 +75,27 @@ export default function ContactModal({ gig, onClose }: ContactModalProps) {
     window.setTimeout(() => setCopied(false), 1600);
   }
 
+  // 直接下载（用户 PO 选择 2026-08-29 v0.3.3）：blob 同源化后 a.download 才生效（跨域 URL 会被忽略）
+  async function handleSaveQr() {
+    if (!target) return;
+    const url = target.qr_image_url;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = url.split('/').pop()?.split('?')[0] || 'qrcode.jpg';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+    } catch {
+      window.open(url, '_blank', 'noopener');
+    }
+  }
+
   return (
     <div
       className="modal-mask"
@@ -106,17 +129,24 @@ export default function ContactModal({ gig, onClose }: ContactModalProps) {
             </div>
             <p className="contact-wxid-label">微信号 / WECHAT ID</p>
             <div className="code-line" data-testid="contact-wxid">{target.wxid}</div>
-            <button type="button" className="btn btn-primary block" onClick={() => void handleCopy()}>
-              {copied ? (
-                <>
-                  <Check size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />已复制，去微信粘贴
-                </>
-              ) : (
-                <>
-                  <Copy size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />复制微信号
-                </>
-              )}
-            </button>
+            <div className="row" style={{ marginTop: 10 }}>
+              <button type="button" className="btn" style={{ flex: 1 }} onClick={() => void handleSaveQr()}>
+                <Download size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />
+                保存二维码
+              </button>
+              <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => void handleCopy()}>
+                {copied ? (
+                  <>
+                    <Check size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />已复制 ✓
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />复制微信号
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="hint">若未开始下载（微信内常见），请长按上方二维码图片选择保存。</p>
             {target.notice && <p className="hint">{target.notice}</p>}
           </>
         )}
