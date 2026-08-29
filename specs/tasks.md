@@ -31,21 +31,23 @@
 
 ## M3 学生端页面（依赖 M0 令牌与 M2 API）
 
-- [ ] T-M3-1 布局壳：底部 3 Tab（单子 `/`、联系=打开联系弹层、管理 `/admin`）；AppBackground；`viewport-fit=cover` + `env(safe-area-inset-*)` + `100dvh`。
-- [ ] T-M3-2 首页列表：筛选栏（grade_level 下拉、mode 下拉、subject 文本输入）、单子卡片流（卡片含区域、性别徽标仅 male/female 时显示、报酬与时段）、分页（上一页/下一页 + 页码，pageSize=20）、骨架屏（6 卡）、空态文案「暂时没有新单子，过几天再来看看」、错误态 + 重试按钮。
-- [ ] T-M3-3 详情页 `/gigs/:id`：全字段展示（学员情况独立分块，含性别徽标）、状态徽标（matched/closed 时联系按钮禁用）、id 不存在时 404 文案。
-- [ ] T-M3-4 `ContactModal` 组件：二维码 + wxid 复制按钮 + notice 文案 + fallback 规则（P-GIG-04）；`PT-GIG-04` 组件测试。
+- [x] T-M3-1 布局壳：底部 2 Tab（单子 `/`、管理 `/admin`；2026-08-29 用户调整：移除「联系」Tab，联系入口收敛到单子详情页）；AppBackground；`viewport-fit=cover` + `env(safe-area-inset-*)` + `100dvh`。
+- [x] T-M3-2 首页列表：筛选栏（grade_level 下拉、mode 下拉、subject 文本输入）、单子卡片流（卡片含区域、性别徽标仅 male/female 时显示、报酬与时段）、分页（上一页/下一页 + 页码，pageSize=20）、骨架屏（6 卡）、空态文案「暂时没有新单子，过几天再来看看」、错误态 + 重试按钮。
+- [x] T-M3-3 详情页 `/gigs/:id`：全字段展示（学员情况独立分块，含性别徽标）、状态徽标（matched/closed 时联系按钮禁用）、id 不存在时 404 文案。
+- [x] T-M3-4 `ContactModal` 组件：二维码 + wxid 复制按钮 + notice 文案 + fallback 规则（P-GIG-04）；`PT-GIG-04` 组件测试（tests/contact-target.test.ts，纯函数 oracle）。
 
 验收：TC-VIEW-003/004/005 通过；375px 视口无横向滚动；键盘可达。
+（2026-08-29 收口：TC-VIEW-003/004/005 已随 M3 转自动化——tests/view-components.test.tsx，依赖 @testing-library/react + @testing-library/dom + happy-dom（devDeps，用户确认）。）
 
 ## M4 管理端页面（依赖 M0 与 M2）
 
-- [ ] T-M4-1 `/admin` 登录门：未登录显示邮箱+密码登录表单（supabase-js `signInWithPassword`）；非 admin 显示无权限提示；登录态恢复（`onAuthStateChange`）。
-- [ ] T-M4-2 单子管理列表：状态 Tab（全部 / open / matched / closed）；状态操作按钮按状态机只渲染合法目标状态；删除需二次确认。
-- [ ] T-M4-3 发布/编辑表单（`/admin/gigs/new`、`/admin/gigs/:id/edit`）：字段与校验规则对齐 spec §5.3；服务端 422 details 映射到对应字段错误提示。
-- [ ] T-M4-4 `/admin/settings`：wxid / notice 编辑 + 二维码图片上传至 `site-assets` bucket，回写 `qr_image_url`。
+- [x] T-M4-1 `/admin` 登录门：未登录显示邮箱+密码登录表单（supabase-js `signInWithPassword`）；非 admin 显示无权限提示；登录态恢复（`onAuthStateChange`）。
+- [x] T-M4-2 单子管理列表：状态 Tab（全部 / open / matched / closed）；状态操作按钮按状态机只渲染合法目标状态；删除需二次确认。
+- [x] T-M4-3 发布/编辑表单（`/admin/gigs/new`、`/admin/gigs/:id/edit`）：字段与校验规则对齐 spec §5.3；服务端 422 details 映射到对应字段错误提示。
+- [x] T-M4-4 `/admin/settings`：wxid / notice 编辑 + 二维码图片上传至 `site-assets` bucket，回写 `qr_image_url`。
 
 验收：TC-ADMIN-004/005 手工回归通过；管理端在 375px 可用（延续全屏后台习惯）。
+（2026-08-29 收口：四个任务落地。实现注记——AdminGate 用嵌套路由包住 /admin 三级页面，会话恢复与 profiles.role 确认跨子路由保持（role 判定只做 UI 分流，写接口权威门禁仍是 BFF assertAdmin）；状态机 UI 侧映射收敛于 `src/services/transitions.ts`（3×3 组合进 tests/admin-components.test.tsx）；删除二次确认用移植的 grad .modal；settings 二维码以时间戳文件名上传后回写 qr_image_url 并尽力清理旧对象。素材移植：.gh-tabs/.gh-tab（grad-github.css）与 .t-actions/.icon-btn（grad-task-list.css，svg 居中与换行为 M4 适配偏差）。前端门禁全绿：typecheck / 21 测试（新增 10 条 admin 组件用例）/ build / SERVICE_ROLE_KEY 零匹配 / drift_lite ok=true。375px 视口与真机回归留 M5 手工门。）
 
 ## M5 验收与上线（依赖 M2..M4 全部完成）
 

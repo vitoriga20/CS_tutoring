@@ -72,14 +72,14 @@
 
   场景: 详情页联系弹层（contact_wxid 回退规则）
     假设 访客打开单子 id 为 G1 的详情页 且 G1.contact_wxid 为空
-    当 访客点击底部固定按钮 "联系管理员接单"
+    当 访客点击底部固定按钮 "联系小助理接单"
     那么 弹层展示 site_config.qr_image_url 的二维码与 site_config.wxid
     且 弹层提供复制 wxid 的按钮，点击后 wxid 进入剪贴板
 
   场景: 已匹配单子详情
     当 访客打开 status 为 "matched" 的单子详情页
     那么 页面显示 "已匹配" 状态徽标
-    且 底部按钮 "联系管理员接单" 呈禁用态
+    且 底部按钮 "联系小助理接单" 呈禁用态
 
   场景: 不存在的单子
     当 访客向 GET /api/v1/gigs/00000000-0000-0000-0000-000000000000 发送请求
@@ -389,7 +389,7 @@ P-GIG-04: ∀ gig:
 | `RATE_LIMITED` | 429 | 同一 IP 每 60 秒超过 120 次请求（响应含 `Retry-After: 60`） | WARN |
 | `INTERNAL` | 500 | 未预期的服务器错误（`{error: "Internal Server Error", code: "INTERNAL"}`） | ERROR |
 
-日志规范: BFF 中 4xx 打印一行摘要（`[gigs] 422 VALIDATION_ERROR`）；5xx 打印完整错误对象含 `path`；不打印 JWT、请求体外文本身份信息。
+日志规范: BFF 中 4xx 打印一行摘要（`[gigs] 422 VALIDATION_ERROR`）；5xx 打印完整错误对象含 `path`；不打印 JWT、请求体外文本身份信息。（M3 实施注记：请求一行摘要由 `bff/src/middleware/requestLog.ts` 落地，含方法/路径/状态/耗时；前端失败请求在 DEV 模式打 `console.debug`，仅用于开发诊断，不进生产 console。）
 
 ---
 
@@ -399,9 +399,9 @@ P-GIG-04: ∀ gig:
 |----------|---------|------|-------------|------------|
 | Gherkin: 默认列表只展示 open | REQ-VIEW-01 | 验收测试 | TC-VIEW-001 | 已自动化（bff/tests PT-GIG-02 路由级覆盖） |
 | Gherkin: 组合筛选 | REQ-VIEW-02 | 验收测试 | TC-VIEW-002 | 已自动化（bff/tests/gigs-route.test.ts） |
-| Gherkin: 首页空态 | REQ-VIEW-03 | 验收测试 | TC-VIEW-003 | 未自动化（期限: M3 里程碑内） |
-| Gherkin: 详情联系弹层 | REQ-VIEW-04 | 验收测试 | TC-VIEW-004 | 未自动化（期限: M3 里程碑内） |
-| Gherkin: 已匹配单子详情 | REQ-VIEW-05 | 验收测试 | TC-VIEW-005 | 未自动化（期限: M3 里程碑内） |
+| Gherkin: 首页空态 | REQ-VIEW-03 | 验收测试 | TC-VIEW-003 | 已自动化（tests/view-components.test.tsx，2026-08-29 经用户确认新增 @testing-library/react + happy-dom） |
+| Gherkin: 详情联系弹层 | REQ-VIEW-04 | 验收测试 | TC-VIEW-004 | 已自动化（tests/view-components.test.tsx，含 P-GIG-04 组件侧两分支与剪贴板断言） |
+| Gherkin: 已匹配单子详情 | REQ-VIEW-05 | 验收测试 | TC-VIEW-005 | 已自动化（tests/view-components.test.tsx，matched/closed 双状态徽标 + 按钮禁用） |
 | Gherkin: 不存在的单子 | REQ-VIEW-06 | 验收测试 | TC-VIEW-006 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 发布成功 | REQ-ADMIN-01 | 验收测试 | TC-ADMIN-001 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 缺 region 被拒绝 | REQ-ADMIN-02 | 验收测试 | TC-ADMIN-002 | 已自动化（bff/tests 路由+校验器双层） |
@@ -415,7 +415,7 @@ P-GIG-04: ∀ gig:
 | Properties: P-GIG-01 | REQ-PT-01 | 属性测试 | PT-GIG-01 | 已自动化（bff/tests/validators.test.ts 3×3 全组合） |
 | Properties: P-GIG-02 | REQ-PT-02 | 属性测试 | PT-GIG-02 | 已自动化（bff/tests/gigs-route.test.ts 路由级） |
 | Properties: P-GIG-03 | REQ-PT-03 | 属性测试 | PT-GIG-03 | 已自动化（bff/tests/gigs-route.test.ts 401/403/201 三态+无变更断言） |
-| Properties: P-GIG-04 | REQ-PT-04 | 属性测试 | PT-GIG-04 | 未自动化（期限: M3 里程碑内） |
+| Properties: P-GIG-04 | REQ-PT-04 | 属性测试 | PT-GIG-04 | 已自动化（tests/contact-target.test.ts，纯函数 oracle 遍历 contact_wxid ∈ {null, 非null}；组件渲染侧由 TC-VIEW-004 承接） |
 
 一致性保障: 测试文件存 `tests/`，用例 ID 与本矩阵逐字一致；全部转「已自动化」前不允许把 M5 标记完成。
 
@@ -461,3 +461,4 @@ P-GIG-04: ∀ gig:
 | 2026-08-29 | v0.1.0 | 初始版本: 根级 spec + openapi.yaml + 3 个实体 schema + tasks/checklist | （仓库尚无提交） |
 | 2026-08-29 | v0.2.0 | gigs 表修订: region 改为无条件必填，新增 student_gender / student_info 字段，requirements 明确为「对老师的要求」，移除 region 条件 CHECK | （仓库尚无提交） |
 | 2026-08-29 | v0.2.1 | M2 实施回补: subject 筛选通配符（* 与 %）返回 422；覆盖矩阵按 BFF 测试落地更新自动化状态 | （仓库尚无提交） |
+| 2026-08-29 | v0.2.2 | M3 实施 UI 调整（用户 PO 指示）: 底部导航移除「联系」Tab（2 Tab：单子/管理），联系入口收敛到单子详情页底部按钮；按钮文案「联系管理员接单」→「联系小助理接单」（弹层内文案同步） | （仓库尚无提交） |

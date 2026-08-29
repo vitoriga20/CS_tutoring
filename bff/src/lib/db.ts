@@ -1,5 +1,5 @@
 // 数据访问层：全部 Supabase 访问集中于此，路由不直接触库（便于测试替换）
-import type { Bindings } from '../env';
+import { assertSupabaseEnv, type Bindings } from '../env';
 import { SupabaseRest } from './supabase';
 import type { GigCreate } from './validators';
 import type { Gig, GigStatusFilter, SiteConfig } from '../types';
@@ -14,6 +14,7 @@ export interface GigListFilters {
 }
 
 function client(env: Bindings): SupabaseRest {
+  assertSupabaseEnv(env);
   return new SupabaseRest(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 }
 

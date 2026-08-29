@@ -1,4 +1,8 @@
-# bff 独立 Worker 本地开发用（复制为 .dev.vars；已被 .gitignore 忽略）
+# bff 独立 Worker 本地开发用：复制为同目录 .dev.vars（.gitignore 已忽略 .dev.vars，禁止提交真实值），填好后重启 wrangler dev。
+# 值来源：Supabase Dashboard → Project Settings → API
+#   - SUPABASE_URL = Project URL
+#   - SUPABASE_SERVICE_ROLE_KEY = service_role（secret）——只放这里或 Cloudflare Secrets，绝不进前端/仓库
+# 注意：service_role ≠ publishable/anon key；不要带 < > 引号等包裹符号。
 SUPABASE_URL=https://<project-ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 GIGS_CACHE_TTL=60

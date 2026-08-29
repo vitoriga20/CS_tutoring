@@ -44,6 +44,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     res = await fetch(`/api/v1${path}`, { ...init, headers, signal: controller.signal });
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') {
+      if (import.meta.env.DEV) {
+        console.debug(`[api] ${init.method ?? 'GET'} /api/v1${path} 超时（${REQUEST_TIMEOUT_MS}ms）`);
+      }
       throw new ApiError(0, 'TIMEOUT', `API ${path} 请求超时（${REQUEST_TIMEOUT_MS}ms）`);
     }
     throw e;
@@ -56,10 +59,24 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       code?: string;
       details?: FieldIssue[];
     };
+    if (import.meta.env.DEV) {
+      console.debug(
+        `[api] ${init.method ?? 'GET'} /api/v1${path} → ${res.status} ${body.code ?? '（响应体非 JSON，无错误码）'}`,
+        body.error ?? '',
+      );
+      if (res.status === 500 && !body.code) {
+        console.debug(
+          '[api] 提示：500 且响应体非 JSON，本地开发通常是 BFF 未启动（先创建 bff/.dev.vars，再 cd bff && npm run dev）',
+        );
+      }
+    }
     throw new ApiError(
       res.status,
       body.code ?? 'UNKNOWN',
-      body.error ?? `API ${path} 失败（${res.status}）`,
+      body.error ??
+        (res.status === 500 && !body.code
+          ? `API ${path} 失败（500）：BFF 不可达（本地请启动 cd bff && npm run dev）`
+          : `API ${path} 失败（${res.status}）`),
       body.details,
     );
   }

@@ -11,3 +11,16 @@ export type ApiEnvelope<T> = {
   data: T;
   meta?: Record<string, unknown>;
 };
+
+// 配置守卫：SUPABASE_URL / SERVICE_ROLE 缺失时尽早抛出可读错误，
+// 避免 undefined 深入客户端后变成 "Cannot read properties of undefined (reading 'replace')" 一类谜语。
+// 抛出后由 app.onError 统一转 500 INTERNAL 并打印本条消息。
+export function assertSupabaseEnv(
+  env: Pick<Bindings, 'SUPABASE_URL' | 'SUPABASE_SERVICE_ROLE_KEY'>,
+): void {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      '[bff] 配置缺失：SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 未设置（本地：参照 bff/.dev.vars.example 创建 bff/.dev.vars 并重启 wrangler dev；线上：注入 Cloudflare Secrets）',
+    );
+  }
+}

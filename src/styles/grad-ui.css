@@ -1,0 +1,247 @@
+/* ============================================================
+   M3 组件样式层
+   - 「from: grad」段落：素材库 extracted-components/ 逐字移植（偏差逐条注明）；
+     组件局部态变色值随移植保留（提取铁律：组件局部态变可用），不新增任意 hex。
+   - 「M3 新增」段落：素材库无对应组件的壳层（TabBar/骨架/状态盒等），
+     取值全部来自 tokens.css 令牌。
+   ============================================================ */
+
+/* ---- from: grad // grad-task-list.css（待办列表批量组件：过滤器 + 任务项 + 标签）
+        file: renderer/css/theme.css (L646-684)
+        移植范围（M3 取用）：.filter-bar/.task-list/.task-item/.t-main/.t-title/.t-meta/
+        .tag 体系/.t-subs；未移植：.t-check（无完成勾选态）、.rarity-stars（无星级）、
+        .icon-btn/.t-actions（M4 管理操作时随 M4 移植）、.task-item.done（gig 无完成态）。
+        hover 左移 + 黄影 transition 逐字。 ---- */
+.filter-bar { margin-bottom: 16px; }
+.task-list { display: flex; flex-direction: column; gap: 13px; }
+.task-item {
+  display: flex; align-items: center; gap: 15px;
+  min-height: 78px;
+  padding: 14px 18px;
+  position: relative;
+  border: 1px solid #343a40;
+  border-left: 4px solid #575e65;
+  background: rgba(25, 28, 32, .94);
+  color: #e8eae7;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .18), inset 0 1px 0 rgba(255, 255, 255, .04);
+  transition: .14s ease;
+  clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+.task-item:hover { border-left-color: var(--yellow); background: #20242a; transform: translateX(3px); box-shadow: -3px 0 0 rgba(255, 244, 79, .28), 0 12px 24px rgba(0, 0, 0, .3); }
+.t-main { flex: 1; min-width: 0; }
+.t-title { font-size: 15px; font-family: var(--display-cjk); font-weight: 700; letter-spacing: -.015em; }
+.t-meta { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; align-items: center; }
+.tag { display: inline-flex; align-items: center; min-height: 20px; padding: 2px 8px; border: 1px solid #61676e; background: #20242a; color: #c5c9cd; font: 700 9px/1 var(--mono); letter-spacing: .04em; }
+.tag.high, .tag.overdue { border-color: #8d3936; background: #301918; color: #ff8580; }
+.tag.medium { border-color: var(--yellow-2); background: rgba(255, 244, 79, .1); color: var(--yellow); }
+.tag.low { color: #9aa0a7; }
+.tag.status { border-color: #555b62; }
+.t-subs { margin-top: 10px; padding-left: 13px; border-left: 2px solid var(--yellow); list-style: none; color: #9fa4aa; font-size: 12px; }
+
+/* ---- from: grad // grad-controls.css（表单控件批量组件）
+        file: renderer/css/theme.css (L433-446, L557-624, L1511, L1515)
+        移植范围（M3 取用）：.btn 家族/.input（含 select/.placeholder/:focus）/.row/.muted/
+        .hint/.code-line；btn hover 位移 + focus 黄框光晕 transition 逐字。
+        偏差：.btn/.btn-primary 背景中的纹理 png url() 层移除（素材图片不在本仓库，
+        保留渐变层与底色，其余规则逐字）；.btn-ghost/.seg/.check/.chat-input/
+        textarea.summary-edit/.input.ai-add-input 未取用。 ---- */
+.btn {
+  min-height: 38px;
+  padding: 9px 20px 9px 23px;
+  border: 1px solid #5f656b;
+  border-left: 3px solid #899096;
+  border-radius: 0;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, .04), transparent 38%),
+    #303438;
+  color: #f6f7f3;
+  cursor: pointer;
+  font: 700 12px/1.2 var(--display-cjk);
+  letter-spacing: .04em;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .11) inset, 3px 4px 0 #070809, 0 10px 21px rgba(0, 0, 0, .24);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+  transition: transform .18s ease, box-shadow .18s ease, color .18s ease, border-color .18s ease;
+}
+.btn:hover { color: var(--yellow); border-color: var(--yellow); transform: translate(-1px, -1px); box-shadow: 5px 5px 0 #070809, 6px 6px 0 rgba(255, 244, 79, .28); }
+.btn-primary {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, .04), transparent 42%),
+    #303438;
+  color: #f7f8f5;
+  border-color: #4d5257;
+  border-left-color: var(--yellow);
+  box-shadow: 4px 4px 0 #050607, 6px 6px 0 rgba(255, 244, 79, .34), 0 12px 26px rgba(0, 0, 0, .35);
+}
+.btn-primary:hover { background-color: #24282c; color: var(--yellow); }
+.btn.block { width: 100%; margin-top: 12px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+.input {
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid #585e65;
+  border-left: 3px solid #7b8188;
+  border-radius: 0;
+  background: #181b1f;
+  color: #f6f7f3;
+  outline: none;
+  box-shadow: inset 0 1px 10px rgba(0, 0, 0, .35), 3px 3px 0 rgba(0, 0, 0, .35);
+}
+.input::placeholder { color: #767c83; }
+.input:focus { border-color: var(--yellow); border-left-color: var(--yellow); box-shadow: 0 0 0 1px var(--yellow), 0 0 18px rgba(255, 244, 79, .1); }
+select.input { cursor: pointer; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.muted { color: #777d84; font-size: 12px; }
+.hint { color: #747a81; font-size: 11px; margin-top: 11px; line-height: 1.65; }
+.code-line { margin-bottom: 10px; padding: 11px 13px; word-break: break-all; border: 1px solid #343940; border-left: 3px solid var(--yellow); background: #0b0d0f; color: var(--yellow); font: 11px/1.5 var(--mono); }
+
+/* ---- from: grad // grad-modals.css（弹窗/模态批量组件）
+        file: renderer/css/theme.css (L891, L918, L937-942)
+        移植范围（M3 取用）：.modal-mask/.modal/.modal h3/.modal-actions；
+        .modal.wide/.split-plan-modal/.drawer-mask/.modal .input 未取用。 ---- */
+.modal-mask { position: fixed; inset: 0; z-index: 110; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .76); backdrop-filter: blur(5px); }
+.modal { width: 470px; max-width: 92vw; max-height: 88vh; overflow-y: auto; padding: 25px 28px; border: 1px solid #fff; border-top: 6px solid var(--yellow); background: #f4f4f1; color: #111; box-shadow: 12px 12px 0 #050607, 15px 15px 0 var(--yellow), 0 28px 70px rgba(0, 0, 0, .55); }
+.modal h3 { margin-bottom: 9px; padding: 0 0 8px 13px; border-left: 4px solid var(--yellow-2); border-bottom: 1px solid #999; font-size: 21px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 19px; }
+
+/* ---- from: grad // grad-task-list.css（.t-actions 行内操作列 + 圆形 .icon-btn）
+        file: renderer/css/theme.css (L646-684)
+        移植范围（M4 取用）：.t-actions/.icon-btn 逐字（M3 注记「随 M4 移植」）。
+        偏差：.icon-btn 补 inline-flex 居中——M4 按钮内容含 lucide svg 图标
+        （原库为纯文字，text 居中语义不等价）；.t-actions 补 flex-wrap + 尾对齐
+        （375px 视口下行内最多 4 钮需换行，非动画规则）。 ---- */
+.t-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.icon-btn { min-width: 36px; height: 36px; padding: 0 7px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #767c82; border-radius: 50%; background: rgba(255, 255, 255, .06); color: #999fa5; cursor: pointer; font: 700 7px/1 var(--display-wide); letter-spacing: .03em; text-decoration: none; box-shadow: 0 2px 8px rgba(0, 0, 0, .14); transition: .16s ease; }
+.icon-btn:hover { border-color: var(--yellow); color: var(--yellow); background: #0d0f11; transform: translateY(-2px); box-shadow: 0 5px 13px rgba(0, 0, 0, .26), 0 0 0 3px rgba(255, 244, 79, .12); }
+
+/* ---- from: grad // grad-github.css（.gh-tabs/.gh-tab 紧凑页签）
+        file: renderer/css/theme.css (L41-43)
+        移植范围（M4 取用）：管理列表状态 Tab 逐字。选型说明：grad-controls.css 的
+        .seg-btn min-width 88px，4 页签在 375px 溢出；.gh-tab 深色工作台原生紧凑页签。 ---- */
+.gh-tabs { display: flex; gap: 4px; }
+.gh-tab { padding: 4px 12px; border: 1px solid #9da0a2; background: #e7e7e3; color: #555a5d; font: 600 11px/1.5 var(--mono); letter-spacing: .05em; cursor: pointer; }
+.gh-tab.active { background: #111418; color: var(--yellow); border-color: #111418; box-shadow: 2px 2px 0 rgba(0, 0, 0, .25); }
+
+/* ---- from: grad // grad-page.css（.page 进场动画部分）
+        file: renderer/css/theme.css (L507-508, L1187)
+        移植偏差：仅取 pageIn 进场动画（0.26s）；display 切换语义（.page/.page.active）
+        由 react-router 承担，不移植；pageIn 关键帧移除 translateY(8px)、只保留 opacity——
+        transform 会让 .page 成为 position:fixed 后代的包含块（Chrome 在动画未推进时保持
+        from 态 transform），底部固定联系按钮因此悬在内容中部而非贴底（2026-08-29 实测修复）。
+        另外 display:none 初始态语义不移植。 ---- */
+.page { animation: pageIn .26s ease both; }
+@keyframes pageIn { from { opacity: 0; } }
+
+/* ---- from: grad // grad-app-shell.css（.main::before 前景装饰层：网格 + 黄晕 + 径向遮罩）
+        file: renderer/css/theme.css (L21-34)
+        移植偏差：承载元素由 .main::before 改为 AppBackground 的 .app-bg__grid；
+        transition: left（侧栏收展位移）因本项目无侧栏不移植；背景中的 webp 实景图层
+        移除（素材不在本仓库，底色由 tokens --bg-deep 承担）；网格/黄晕/遮罩逐字。 ---- */
+.app-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.app-bg__grid {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 62% 28%, rgba(255, 244, 79, .07), transparent 42%),
+    linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
+  background-size: auto, 42px 42px, 42px 42px;
+  -webkit-mask-image: radial-gradient(ellipse at center top, #000 30%, transparent 78%);
+  mask-image: radial-gradient(ellipse at center top, #000 30%, transparent 78%);
+}
+
+/* ============================================================
+   M3 新增（素材库无对应组件；取值全部来自 tokens.css）
+   ============================================================ */
+
+/* 键盘可达 focus 环（NFR：focus 可见；input 自带黄框光晕不受影响） */
+:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+
+/* 应用壳：100dvh + 内容滚动 + 底部 Tab 安全区（T-M3-1） */
+.app-shell { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100dvh; }
+.app-scroll { flex: 1; width: 100%; max-width: 640px; margin: 0 auto; padding: 0 16px calc(96px + env(safe-area-inset-bottom)); }
+
+/* 底部 2 Tab（单子 / 管理；2026-08-29 用户调整移除「联系」Tab）；safe-area 让出 iOS Home 指示条 */
+.tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border-top: 1px solid var(--line);
+  background: rgba(17, 19, 22, .96);
+  backdrop-filter: blur(8px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar__item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 0 7px;
+  border: 0; background: none;
+  color: var(--muted);
+  font: 700 10px/1 var(--latin);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.tabbar__ind { width: 26px; height: 2px; background: var(--yellow); opacity: 0; transition: opacity .18s ease; }
+.tabbar__item.active { color: var(--yellow); }
+.tabbar__item.active .tabbar__ind { opacity: 1; }
+.tabbar__item:disabled { cursor: default; }
+
+/* 移动端页头（改编自 grad-page.css .page-head：黄左线 + 短黄条 + 英文角标；
+   尺寸按 375px 视口缩减，非动画规则，取色换用令牌） */
+.m-head { position: relative; margin: 18px 0 16px; padding: 10px 0 14px 12px; border-left: 1px solid var(--yellow); border-bottom: 1px solid var(--line); }
+.m-head::before { content: ""; position: absolute; left: -1px; bottom: -1px; width: 64px; height: 4px; background: var(--yellow); box-shadow: 70px 0 0 rgba(255, 244, 79, .25), 76px 0 0 rgba(255, 244, 79, .12); }
+.m-head::after { content: attr(data-tag); position: absolute; left: 13px; top: -7px; color: var(--muted); font: 600 8px/1 var(--display-wide); letter-spacing: .18em; }
+.m-head h1 { color: var(--text); font: 900 30px/1 var(--display-cjk); letter-spacing: -.05em; }
+.m-head .m-head-sub { margin-top: 8px; color: var(--muted); font: 500 10px/1.4 var(--latin); letter-spacing: .08em; text-transform: uppercase; }
+
+/* 首页筛选栏布局：两个下拉一行 + 科目输入整行（M3 新增布局，控件为移植的 .input） */
+.filter-m { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.filter-m .input { width: 100%; }
+.filter-m .filter-m__subject { grid-column: 1 / -1; }
+
+/* 加载骨架：外壳复用移植的 .task-item（视觉一致），条块用令牌色 + 克制的透明度脉冲 */
+.skel-bar { height: 12px; background: var(--line-soft); }
+.skel-bar--lg { height: 16px; width: 62%; }
+.skel-bar--tag { height: 14px; width: 38%; }
+.skel-bar--rate { height: 16px; width: 72px; margin-left: auto; }
+
+/* 空态 / 错误态状态盒 */
+.state-box { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 44px 20px; border: 1px solid var(--line); border-left: 4px solid #575e65; background: rgba(25, 28, 32, .94); color: var(--muted); text-align: center; clip-path: polygon(0 0, calc(100% - 15px) 0, 100% 15px, 100% 100%, 12px 100%, 0 calc(100% - 12px)); }
+.state-box svg { color: var(--yellow-2); }
+.state-box--error { border-left-color: var(--red); }
+.state-box--error svg { color: var(--red); }
+
+/* 分页条 */
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; }
+.pager__info { color: var(--muted); font: 500 11px/1 var(--numeric); letter-spacing: .05em; }
+
+/* 详情页：返回行 / 全字段分块 / 底部固定联系按钮 */
+.back-link { display: inline-flex; align-items: center; gap: 5px; margin: 14px 0 2px; border: 0; background: none; color: var(--muted); font: 700 11px/1 var(--latin); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; text-decoration: none; }
+.back-link:hover { color: var(--yellow); }
+.detail-rate { color: var(--yellow); font: 700 15px/1 var(--numeric); }
+.detail-label { display: block; margin: 16px 0 6px; padding-left: 9px; border-left: 2px solid var(--yellow); color: var(--muted); font: 700 9px/1.2 var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+.detail-block { margin-top: 6px; padding: 12px 14px; border: 1px solid var(--line); background: rgba(25, 28, 32, .94); color: var(--text); font-size: 13px; line-height: 1.7; }
+.detail-cta { position: fixed; left: 16px; right: 16px; bottom: calc(74px + env(safe-area-inset-bottom) + 10px); z-index: 55; max-width: 608px; margin: 0 auto; }
+
+/* 联系弹层内部（弹壳为移植的 .modal 浅色面板） */
+.contact-qr { display: grid; place-items: center; margin: 14px 0 4px; padding: 10px; border: 1px solid #999; background: var(--panel-2); }
+.contact-qr img { display: block; width: 200px; height: 200px; object-fit: contain; }
+.contact-wxid-label { margin: 4px 0 6px; padding-left: 9px; border-left: 2px solid var(--yellow-2); color: #6f757c; font: 700 9px/1.2 var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+
+/* 状态徽标补充档：open 用 --green（matched/closed 复用移植的 .tag.medium/.tag.high） */
+.tag.tag-open { border-color: rgba(142, 239, 91, .4); background: rgba(142, 239, 91, .08); color: var(--green); }
+
+/* 管理端表单（M4 新增；标签延续 .detail-label 黄左线语汇，取值全部来自 tokens.css） */
+.f-label { display: block; margin: 14px 0 6px; padding-left: 9px; border-left: 2px solid var(--yellow); color: var(--muted); font: 700 11px/1.2 var(--display-cjk); letter-spacing: .05em; }
+.f-err { margin: 6px 0 0; padding-left: 9px; color: var(--red); font: 700 11px/1.5 var(--display-cjk); }
+.block-input { display: block; width: 100%; }
+textarea.block-input { resize: vertical; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* 动效降级（新增 a11y；NFR 兼容性门） */
+@media (prefers-reduced-motion: reduce) {
+  .page, .task-item, .btn, .tabbar__ind { animation: none !important; transition: none !important; }
+}

@@ -18,11 +18,11 @@
 
 <!-- 闭环项见 decisions/_INDEX.md；#001（Spec 确认）已于 2026-08-29 闭环（decisions/002）。 -->
 
-## #003 新建 Supabase 项目 + BFF 联调
+## #003 Supabase 迁移执行 + BFF 联调
 - **优先级**: H
-- **现状**: 迁移 SQL 与 BFF 代码/测试已就绪（2026-08-29，decisions/004）；等待用户完成账号侧操作——新建 Supabase 项目并执行迁移、注册管理员、上传二维码、Cloudflare 建 Pages 项目/KV/Secrets。
-- **原因**: 建项目/密钥需要用户的 Supabase 与 Cloudflare 账号，Agent 无法代办。
-- **方案**: 用户按 decisions/004 附带的操作清单执行 → `.dev.vars` 填真钥 → `wrangler pages dev` 联调 healthz/CRUD → 本项闭环。
+- **现状**: 迁移 SQL 与 BFF 代码/测试已就绪并推送 GitHub（2026-08-29，decisions/004）。Supabase MCP 已配置（项目 ref zuyubuluxtafpxryqfsw）但需新会话加载；Cloudflare 侧 wrangler 已 OAuth 登录，CLI 可代办 KV/Pages/secrets/deploy。
+- **原因**: 迁移执行待 MCP 会话生效（或用户 Dashboard 手动执行 SQL）；service_role key 需从 Supabase 获取。
+- **方案**: 新会话经 MCP 执行迁移 + 建管理员 → 用户注册账号并提权 → CLI 建 KV/Pages/注入 secrets → `wrangler pages dev` 联调 → 本项闭环。
 - **收益**: 单子发布/浏览主链路真实跑通。
 
 ## #004 移动端/微信 H5 适配基线

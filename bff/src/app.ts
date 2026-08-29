@@ -5,6 +5,7 @@ import type { Bindings } from './env';
 import { securityHeaders } from './middleware/security';
 import { cacheMiddleware } from './middleware/cache';
 import { rateLimit } from './middleware/rateLimit';
+import { requestLog } from './middleware/requestLog';
 import { health } from './routes/health';
 import { gigs } from './routes/gigs';
 import { siteConfig } from './routes/site_config';
@@ -33,6 +34,9 @@ app.use(
 
 // 3) 限流（依赖 KV，未绑定则优雅降级，由边缘 WAF 兜底）
 app.use('/api/v1/*', rateLimit({ limit: 120, windowSec: 60 }));
+
+// 3.5) 请求日志（spec §6：一行摘要；5xx 完整对象在 onError 打印；首个请求校验核心配置）
+app.use('/api/v1/*', requestLog());
 
 // 4) 边缘缓存（只读 GET、无 Authorization；TTL 取 GIGS_CACHE_TTL，默认 60s）
 app.use('/api/v1/*', async (c, next) => {

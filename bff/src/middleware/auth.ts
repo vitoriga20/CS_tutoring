@@ -1,5 +1,5 @@
 import type { Context, Next } from 'hono';
-import type { Bindings } from '../env';
+import { assertSupabaseEnv, type Bindings } from '../env';
 
 // from: CourseCore bff/src/middleware/auth.ts（移植）
 // 移植说明：
@@ -17,6 +17,7 @@ export type AuthedContext = Context<{ Bindings: Bindings; Variables: { user: Aut
 
 // 验证 Supabase JWT，成功返回用户，失败返回 null（网络层细节不外泄）
 export async function authenticateToken(env: Bindings, token: string): Promise<AuthedUser | null> {
+  assertSupabaseEnv(env);
   const sbUrl = env.SUPABASE_URL.replace(/\/$/, '');
   const res = await fetch(`${sbUrl}/auth/v1/user`, {
     headers: {
