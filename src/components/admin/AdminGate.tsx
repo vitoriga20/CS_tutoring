@@ -71,7 +71,7 @@ function LoginForm({ onSignIn }: { onSignIn: (email: string, password: string) =
 }
 
 export default function AdminGate() {
-  const { snap, signIn, signOut } = useAdminSession();
+  const { snap, signIn, signOut, recheck } = useAdminSession();
 
   if (snap.state === 'unconfigured') {
     return (
@@ -108,6 +108,9 @@ export default function AdminGate() {
         <div className="state-box state-box--error" role="alert">
           <ShieldAlert size={28} aria-hidden="true" />
           <p>{snap.reason}</p>
+          <button type="button" className="btn" onClick={() => void recheck()}>
+            重新检查权限
+          </button>
           <button type="button" className="btn" onClick={() => void signOut()}>
             退出登录，换账号
           </button>

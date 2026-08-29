@@ -51,6 +51,8 @@
 
 ## M5 验收与上线（依赖 M2..M4 全部完成）
 
+> 验收方式（2026-08-29 用户 PO 指示）：除静态检查（grep 泄露门禁、代码走查、文档收口等可由 Agent 代办的项）外，不做自动化实测验收——Lighthouse 实测、真机回归、线上冒烟、限流验证等由用户手动验收，证据由用户回填。
+
 - [ ] T-M5-1 覆盖矩阵全部条目转「已自动化」，或在 `checklist.md` 记录人工验收证据。
 - [ ] T-M5-2 NFR 实测：Lighthouse 移动端 Performance ≥ 90 且 Accessibility ≥ 90；`GET /gigs` 20 次请求 P95 < 300ms；`grep -rn "SERVICE_ROLE_KEY" src/` 零匹配；CT-GIG-002 线上限流验证。
 - [ ] T-M5-3 微信真机回归（iOS + Android）：弹层二维码长按识别、safe-area 无遮挡、`100dvh` 滚动正常、默认分享卡片可用。

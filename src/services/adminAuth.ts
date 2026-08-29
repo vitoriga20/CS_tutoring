@@ -16,12 +16,19 @@ export type AdminSessionState =
 async function resolveRole(session: Session | null, alive: () => boolean): Promise<AdminSessionState> {
   if (!session || !supabase) return { state: 'signedOut' };
   if (!alive()) return { state: 'checkingRole' };
+  const uid = session.user.id;
   const { data, error } = await supabase
     .from('profiles')
     .select('role')
-    .eq('id', session.user.id)
+    .eq('id', uid)
     .maybeSingle();
   if (!alive()) return { state: 'checkingRole' };
+  if (import.meta.env.DEV) {
+    // 排障日志：forbidden 分支判定依据（data/error 原样打印，不含 token）
+    console.debug(
+      `[adminAuth] profiles 查询 uid=${uid} → data=${JSON.stringify(data)} error=${error ? `${error.code}: ${error.message}` : 'null'}`,
+    );
+  }
   if (error) return { state: 'forbidden', reason: `权限确认失败：${error.message}` };
   if (data?.role === 'admin') return { state: 'admin' };
   return {
@@ -41,10 +48,18 @@ export function useAdminSession() {
     const alive = () => mounted;
     // supabase-js v2 订阅即发 INITIAL_SESSION（页面刷新恢复会话也走这里）；
     // TOKEN_REFRESHED 时重查 role，可及时反映后台提权/降权。
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (import.meta.env.DEV) {
+        console.debug(
+          `[adminAuth] onAuthStateChange event=${event} hasSession=${Boolean(session)} uid=${session?.user.id ?? '-'}`,
+        );
+      }
       setSnap({ state: session ? 'checkingRole' : 'signedOut' });
       void resolveRole(session, alive).then((next) => {
-        if (mounted) setSnap(next);
+        if (mounted) {
+          if (import.meta.env.DEV) console.debug(`[adminAuth] 状态 → ${next.state}${next.state === 'forbidden' ? `（${next.reason}）` : ''}`);
+          setSnap(next);
+        }
       });
     });
     return () => {
@@ -65,5 +80,13 @@ export function useAdminSession() {
     await supabase?.auth.signOut();
   }, []);
 
-  return { snap, signIn, signOut };
+  // 手动重查（Dashboard 提权后无需刷新页面；forbidden 态的「重新检查权限」按钮用）
+  const recheck = useCallback(async () => {
+    if (!supabase) return;
+    const { data } = await supabase.auth.getSession();
+    setSnap({ state: data.session ? 'checkingRole' : 'signedOut' });
+    setSnap(await resolveRole(data.session, () => true));
+  }, []);
+
+  return { snap, signIn, signOut, recheck };
 }
