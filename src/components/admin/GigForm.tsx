@@ -57,7 +57,7 @@ const EMPTY_VALUES: GigFormValues = {
   title: '',
   subject: '',
   grade_level: 'primary',
-  mode: 'online',
+  mode: 'offline', // 新建默认「线下」（用户 PO 指示 2026-08-29 v0.3.2；编辑时以单子现有值为准）
   region: '',
   student_gender: 'unknown',
   student_info: '',
