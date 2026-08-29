@@ -1,6 +1,6 @@
 // 校验器：签名与规则逐字对齐 specs/spec.md §5.3；必填性/NULL 触发条件见 §5.2
 import { HTTPException } from 'hono/http-exception';
-import { GRADE_LEVELS, GENDERS, MODES, STATUSES, type Gig, type GigStatus, type StudentGender } from '../types';
+import { DISTRICTS, GRADE_LEVELS, GENDERS, MODES, STATUSES, type District, type Gig, type GigStatus, type StudentGender } from '../types';
 
 export interface FieldIssue {
   field: string;
@@ -15,6 +15,8 @@ export interface GigCreate {
   grade_level: Gig['grade_level'];
   mode: Gig['mode'];
   region: string;
+  district: District;
+  hourly_rate: number | null;
   student_gender: StudentGender;
   student_info: string;
   rate: string | null;
@@ -92,7 +94,7 @@ function checkOptionalText(issues: FieldIssue[], field: string, v: unknown, max:
 
 function pickGigFields(body: Record<string, unknown>): Record<string, unknown> {
   const keys = [
-    'title', 'subject', 'grade_level', 'mode', 'region', 'student_gender',
+    'title', 'subject', 'grade_level', 'mode', 'region', 'district', 'hourly_rate', 'student_gender',
     'student_info', 'rate', 'schedule', 'requirements', 'contact_wxid', 'status',
   ];
   const out: Record<string, unknown> = {};
@@ -100,7 +102,7 @@ function pickGigFields(body: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-// 实体级校验（POST 与 PATCH 合并后共用）：必填 = title/subject/grade_level/mode/region/student_info/requirements
+// 实体级校验（POST 与 PATCH 合并后共用）：必填 = title/subject/grade_level/mode/region/district/student_info/requirements
 function validateGigEntity(body: Record<string, unknown>): ValidationResult<GigCreate> {
   const issues: FieldIssue[] = [];
   const title = checkLen(issues, 'title', body.title, 1, 60);
@@ -108,6 +110,18 @@ function validateGigEntity(body: Record<string, unknown>): ValidationResult<GigC
   const grade_level = checkEnum(issues, 'grade_level', body.grade_level, GRADE_LEVELS);
   const mode = checkEnum(issues, 'mode', body.mode, MODES);
   const region = checkLen(issues, 'region', body.region, 1, 40);
+  // district：必填枚举（spec v0.4.0 §5.2）
+  const district = checkEnum(issues, 'district', body.district, DISTRICTS);
+  // hourly_rate：可空整数 0..10000（spec v0.4.0 §5.2/§5.3）
+  let hourly_rate: number | null = null;
+  if (body.hourly_rate !== undefined && body.hourly_rate !== null) {
+    const n = body.hourly_rate as unknown;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > 10000) {
+      issues.push({ field: 'hourly_rate', reason: '须为 0..10000 的整数或 null' });
+    } else {
+      hourly_rate = n;
+    }
+  }
   // student_gender：缺省或显式 null → unknown（spec §5.2）
   const student_gender: StudentGender =
     body.student_gender === undefined || body.student_gender === null
@@ -128,6 +142,8 @@ function validateGigEntity(body: Record<string, unknown>): ValidationResult<GigC
       grade_level: grade_level as Gig['grade_level'],
       mode: mode as Gig['mode'],
       region: region as string,
+      district: district as District,
+      hourly_rate,
       student_gender,
       student_info: student_info as string,
       rate,
@@ -163,6 +179,15 @@ export function validateGigPatch(body: unknown, current: Gig): ValidationResult<
     const s = asTrimmed(provided.region);
     if (s === null || s.length < 1 || s.length > 40) {
       issues.push({ field: 'region', reason: '长度须在 1..40' });
+    }
+  }
+  if ('district' in provided && provided.district !== null) {
+    checkEnum(issues, 'district', provided.district, DISTRICTS);
+  }
+  if ('hourly_rate' in provided && provided.hourly_rate !== null) {
+    const n = provided.hourly_rate;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 0 || n > 10000) {
+      issues.push({ field: 'hourly_rate', reason: '须为 0..10000 的整数或 null' });
     }
   }
   for (const [field, max] of [

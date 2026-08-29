@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Bindings } from '../env';
-import type { GigStatusFilter } from '../types';
-import { GRADE_LEVELS, MODES, STATUSES } from '../types';
+import type { District, GigSort, GigStatusFilter, PriceFilter, StudentGender } from '../types';
+import { DISTRICTS, GENDER_FILTERS, GRADE_LEVELS, MODES, PRICE_FILTERS, SORTS, STATUSES } from '../types';
 import { assertTransition, validateGigInput, validateGigPatch, type FieldIssue } from '../lib/validators';
 import * as db from '../lib/db';
 import { requireAdmin } from '../middleware/adminAuth';
@@ -42,6 +42,24 @@ gigs.get('/', async (c) => {
     return validationError(c, [{ field: 'subject', reason: '不能包含 * 或 %' }]);
   }
 
+  // v0.4.0 筛选参数：district / price / student_gender / sort（spec §3）
+  const districtRaw = c.req.query('district') || undefined;
+  if (districtRaw && !(DISTRICTS as readonly string[]).includes(districtRaw)) {
+    return validationError(c, [{ field: 'district', reason: `须为 ${DISTRICTS.join(' | ')} 之一` }]);
+  }
+  const priceRaw = c.req.query('price') || undefined;
+  if (priceRaw && !(PRICE_FILTERS as readonly string[]).includes(priceRaw)) {
+    return validationError(c, [{ field: 'price', reason: `须为 ${PRICE_FILTERS.join(' | ')} 之一` }]);
+  }
+  const genderRaw = c.req.query('student_gender') || undefined;
+  if (genderRaw && !(GENDER_FILTERS as readonly string[]).includes(genderRaw)) {
+    return validationError(c, [{ field: 'student_gender', reason: '须为 male | female 之一（unknown 表示未标注，不可筛选）' }]);
+  }
+  const sortRaw = c.req.query('sort') || undefined;
+  if (sortRaw && !(SORTS as readonly string[]).includes(sortRaw)) {
+    return validationError(c, [{ field: 'sort', reason: '须为 newest | rate_desc 之一' }]);
+  }
+
   const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20', 10) || 20));
 
@@ -50,6 +68,10 @@ gigs.get('/', async (c) => {
     grade_level,
     mode,
     subject,
+    district: districtRaw as District | undefined,
+    price: priceRaw as PriceFilter | undefined,
+    student_gender: genderRaw as StudentGender | undefined,
+    sort: (sortRaw || 'newest') as GigSort,
     page,
     pageSize,
   });

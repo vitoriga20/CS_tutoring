@@ -2283,6 +2283,17 @@ var GRADE_LEVELS = ["primary", "junior", "senior", "college"];
 var MODES = ["online", "offline"];
 var STATUSES = ["open", "matched", "closed"];
 var GENDERS = ["male", "female", "unknown"];
+var DISTRICTS = ["wangcheng", "kaifu", "yuelu", "furong", "tianxin", "yuhua", "changsha_county", "other"];
+var PRICE_BOUNDS = {
+  le50: [null, 50],
+  "50-80": [50, 80],
+  "80-120": [80, 120],
+  "120-200": [120, 200],
+  gt200: [200, null]
+};
+var PRICE_FILTERS = ["le50", "50-80", "80-120", "120-200", "gt200"];
+var SORTS = ["newest", "rate_desc"];
+var GENDER_FILTERS = ["male", "female"];
 
 // bff/src/lib/validators.ts
 var ALLOWED_TRANSITIONS = /* @__PURE__ */ new Set([
@@ -2339,6 +2350,8 @@ function pickGigFields(body) {
     "grade_level",
     "mode",
     "region",
+    "district",
+    "hourly_rate",
     "student_gender",
     "student_info",
     "rate",
@@ -2358,6 +2371,16 @@ function validateGigEntity(body) {
   const grade_level = checkEnum(issues, "grade_level", body.grade_level, GRADE_LEVELS);
   const mode = checkEnum(issues, "mode", body.mode, MODES);
   const region = checkLen(issues, "region", body.region, 1, 40);
+  const district = checkEnum(issues, "district", body.district, DISTRICTS);
+  let hourly_rate = null;
+  if (body.hourly_rate !== void 0 && body.hourly_rate !== null) {
+    const n = body.hourly_rate;
+    if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > 1e4) {
+      issues.push({ field: "hourly_rate", reason: "\u987B\u4E3A 0..10000 \u7684\u6574\u6570\u6216 null" });
+    } else {
+      hourly_rate = n;
+    }
+  }
   const student_gender = body.student_gender === void 0 || body.student_gender === null ? "unknown" : checkEnum(issues, "student_gender", body.student_gender, GENDERS) ?? "unknown";
   const student_info = checkLen(issues, "student_info", body.student_info, 1, 500);
   const requirements = checkLen(issues, "requirements", body.requirements, 1, 2e3);
@@ -2373,6 +2396,8 @@ function validateGigEntity(body) {
       grade_level,
       mode,
       region,
+      district,
+      hourly_rate,
       student_gender,
       student_info,
       rate,
@@ -2404,6 +2429,15 @@ function validateGigPatch(body, current) {
     const s = asTrimmed(provided.region);
     if (s === null || s.length < 1 || s.length > 40) {
       issues.push({ field: "region", reason: "\u957F\u5EA6\u987B\u5728 1..40" });
+    }
+  }
+  if ("district" in provided && provided.district !== null) {
+    checkEnum(issues, "district", provided.district, DISTRICTS);
+  }
+  if ("hourly_rate" in provided && provided.hourly_rate !== null) {
+    const n = provided.hourly_rate;
+    if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > 1e4) {
+      issues.push({ field: "hourly_rate", reason: "\u987B\u4E3A 0..10000 \u7684\u6574\u6570\u6216 null" });
     }
   }
   for (const [field, max] of [
@@ -2539,8 +2573,15 @@ var SupabaseRest = class {
     const u = new URL(`${this.base.replace(/\/$/, "")}/rest/v1/${table}`);
     u.searchParams.set("select", q.select ?? "*");
     if (q.filters) {
-      for (const [col, [op, val]] of Object.entries(q.filters)) {
-        u.searchParams.set(col, `${op}.${val}`);
+      for (const [col, val] of Object.entries(q.filters)) {
+        if (Array.isArray(val[0])) {
+          for (const [op, v] of val) {
+            u.searchParams.append(col, `${op}.${v}`);
+          }
+        } else {
+          const [op, v] = val;
+          u.searchParams.set(col, `${op}.${v}`);
+        }
       }
     }
     if (q.order) u.searchParams.set("order", q.order);
@@ -2625,10 +2666,20 @@ async function listGigs(env, f) {
   if (f.grade_level) filters.grade_level = ["eq", f.grade_level];
   if (f.mode) filters.mode = ["eq", f.mode];
   if (f.subject) filters.subject = ["ilike", f.subject.trim()];
+  if (f.district) filters.district = ["eq", f.district];
+  if (f.student_gender) filters.student_gender = ["eq", f.student_gender];
+  const range = [];
+  if (f.price) {
+    const [lo, hi] = PRICE_BOUNDS[f.price];
+    if (lo !== null) range.push(["gte", lo + 1]);
+    if (hi !== null) range.push(["lte", hi]);
+    if (range.length > 0) filters.hourly_rate = range;
+  }
+  const order2 = f.sort === "rate_desc" ? "hourly_rate.desc.nullslast,created_at.desc,id.desc" : "created_at.desc,id.desc";
   const { data, total } = await client(env).query("gigs", {
     select: "*",
     filters,
-    order: "created_at.desc,id.desc",
+    order: order2,
     limit: f.pageSize,
     offset: (f.page - 1) * f.pageSize,
     prefer: "count=exact"
@@ -2754,6 +2805,22 @@ gigs.get("/", async (c) => {
   if (subject && /[*%]/.test(subject.trim())) {
     return validationError(c, [{ field: "subject", reason: "\u4E0D\u80FD\u5305\u542B * \u6216 %" }]);
   }
+  const districtRaw = c.req.query("district") || void 0;
+  if (districtRaw && !DISTRICTS.includes(districtRaw)) {
+    return validationError(c, [{ field: "district", reason: `\u987B\u4E3A ${DISTRICTS.join(" | ")} \u4E4B\u4E00` }]);
+  }
+  const priceRaw = c.req.query("price") || void 0;
+  if (priceRaw && !PRICE_FILTERS.includes(priceRaw)) {
+    return validationError(c, [{ field: "price", reason: `\u987B\u4E3A ${PRICE_FILTERS.join(" | ")} \u4E4B\u4E00` }]);
+  }
+  const genderRaw = c.req.query("student_gender") || void 0;
+  if (genderRaw && !GENDER_FILTERS.includes(genderRaw)) {
+    return validationError(c, [{ field: "student_gender", reason: "\u987B\u4E3A male | female \u4E4B\u4E00\uFF08unknown \u8868\u793A\u672A\u6807\u6CE8\uFF0C\u4E0D\u53EF\u7B5B\u9009\uFF09" }]);
+  }
+  const sortRaw = c.req.query("sort") || void 0;
+  if (sortRaw && !SORTS.includes(sortRaw)) {
+    return validationError(c, [{ field: "sort", reason: "\u987B\u4E3A newest | rate_desc \u4E4B\u4E00" }]);
+  }
   const page = Math.max(1, parseInt(c.req.query("page") || "1", 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(c.req.query("pageSize") || "20", 10) || 20));
   const { items, total } = await listGigs(c.env, {
@@ -2761,6 +2828,10 @@ gigs.get("/", async (c) => {
     grade_level,
     mode,
     subject,
+    district: districtRaw,
+    price: priceRaw,
+    student_gender: genderRaw,
+    sort: sortRaw || "newest",
     page,
     pageSize
   });

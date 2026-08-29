@@ -249,6 +249,57 @@ select.input { cursor: pointer; }
 textarea.block-input { resize: vertical; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
+/* 表单勾选项（v0.4.0：面议开关等） */
+.f-check { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.f-check input { accent-color: var(--ba-navy); }
+
+/* ============================================================
+   v0.4.0 筛选区（BA chip 点选 + 展开区）
+   ============================================================ */
+.chip-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip-row__label { flex: none; color: var(--muted); font: var(--ba-fw-bold) 11px/1 var(--ba-font-latin); letter-spacing: .06em; margin-right: 2px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 26px; padding: 3px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--ba-radius-full);
+  background: var(--ba-surface-blue);
+  color: var(--ba-navy);
+  font: var(--ba-fw-medium) 12px/1.4 var(--display-cjk);
+  cursor: pointer;
+  transition: background-color var(--ba-dur-enter), color var(--ba-dur-enter), border-color var(--ba-dur-enter), transform var(--ba-dur-press) var(--ba-ease-out);
+}
+.chip:hover { border-color: var(--ba-navy); }
+.chip:active { transform: scale(.94); }
+.chip.is-on { background: var(--ba-navy); border-color: var(--ba-navy); color: var(--ba-white); }
+/* 自定义科目输入：与 chip 同尺寸的浅底圆角框 */
+.chip-custom {
+  min-height: 26px; width: 108px; padding: 3px 10px;
+  border: 1px solid var(--line); border-radius: var(--ba-radius-full);
+  background: var(--ba-white); color: var(--ba-ink);
+  font-size: 12px; outline: none;
+}
+.chip-custom::placeholder { color: #9aa7b8; }
+.chip-custom:focus { border-color: var(--ba-navy); box-shadow: 0 0 0 3px rgba(39, 115, 225, .18); }
+
+/* 「更多筛选」切换钮：chip 同款 + 激活计数徽标 + 展开箭头 */
+.more-toggle { font-weight: var(--ba-fw-bold); }
+.more-toggle__badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: var(--ba-radius-full);
+  background: var(--ba-yellow); color: #5a4a00;
+  font: var(--ba-fw-heavy) 10px/1 var(--ba-font-latin);
+}
+.more-panel {
+  margin: 4px 0 8px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: var(--ba-radius-md);
+  background: var(--ba-surface);
+  animation: panelIn var(--ba-dur-enter) var(--ba-ease-out) both;
+}
+@keyframes panelIn { from { opacity: 0; transform: translateY(-4px); } }
+.more-panel .chip-row:last-child { margin-bottom: 0; }
+
 /* 动效降级（a11y） */
 @media (prefers-reduced-motion: reduce) {
   .page, .task-item, .btn, .modal, .tabbar__ind { animation: none !important; transition: none !important; }

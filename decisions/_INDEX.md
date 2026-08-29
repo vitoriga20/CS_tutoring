@@ -7,3 +7,4 @@
 | 003-v1-m0-scaffold.md | v1 | 脚手架、m0、react、tailwind-v4、令牌移植、闭环排期#002 | 活跃 | 前端、工作区 |
 | 004-v1-m1-m2-bff.md | v1 | m1、m2、bff、hono、迁移、测试、用户操作清单 | 活跃 | 数据层、后端、鉴权 |
 | 005-v1-ba-restyle.md | v1 | 视觉换皮、BA、蔚蓝档案、arona、令牌替换、类名不变、logo | 活跃 | 前端、工作区 |
+| 006-v1-filter-enhancement.md | v1 | 筛选、district、hourly_rate、价格档、排序、chip、spec-v0.4.0 | 活跃 | 前端、数据层、后端 |

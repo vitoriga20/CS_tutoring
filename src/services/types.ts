@@ -4,6 +4,11 @@ export type LessonMode = 'online' | 'offline';
 export type GradeLevel = 'primary' | 'junior' | 'senior' | 'college';
 export type StudentGender = 'male' | 'female' | 'unknown';
 export type ProfileRole = 'admin' | 'free';
+// 长沙区县枚举（spec v0.4.0 §1）：other 兜底宁乡/浏阳等
+export type District = 'wangcheng' | 'kaifu' | 'yuelu' | 'furong' | 'tianxin' | 'yuhua' | 'changsha_county' | 'other';
+// 列表筛选（spec v0.4.0 §3）
+export type PriceFilter = 'le50' | '50-80' | '80-120' | '120-200' | 'gt200';
+export type GigSort = 'newest' | 'rate_desc';
 
 export interface Gig {
   id: string;
@@ -12,6 +17,8 @@ export interface Gig {
   grade_level: GradeLevel;
   mode: LessonMode;
   region: string;
+  district: District;
+  hourly_rate: number | null;
   student_gender: StudentGender;
   student_info: string;
   rate: string | null;

@@ -2,13 +2,18 @@
 import { assertSupabaseEnv, type Bindings } from '../env';
 import { SupabaseRest } from './supabase';
 import type { GigCreate } from './validators';
-import type { Gig, GigStatusFilter, Profile, PublisherContact, SiteConfig } from '../types';
+import { PRICE_BOUNDS } from '../types';
+import type { District, Gig, GigSort, GigStatusFilter, PriceFilter, Profile, PublisherContact, SiteConfig, StudentGender } from '../types';
 
 export interface GigListFilters {
   status: GigStatusFilter;
   grade_level?: string;
   mode?: string;
   subject?: string;
+  district?: District;
+  price?: PriceFilter;
+  student_gender?: StudentGender;
+  sort?: GigSort;
   page: number;
   pageSize: number;
 }
@@ -18,22 +23,37 @@ function client(env: Bindings): SupabaseRest {
   return new SupabaseRest(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-// 列表：status/grade_level/mode 精确匹配；subject 为 trim 后不区分大小写的精确匹配
+// 列表：status/grade_level/mode/district 精确匹配；subject 为 trim 后不区分大小写的精确匹配
 //（PostgREST ilike 无通配符时等价于 lower(subject)=lower($1)，通配符已在路由层拒绝）
-// 排序 created_at desc, id desc（spec §3）；Prefer: count=exact 取真实 total
+// price 档位（spec v0.4.0 §3）：按 hourly_rate 左开右闭过滤（(下限,上限]），NULL 不命中任何档位
+// sort：newest（缺省）= created_at desc；rate_desc = hourly_rate 降序 NULL 殿后（殿后段保持 created_at desc）
+// Prefer: count=exact 取真实 total
 export async function listGigs(
   env: Bindings,
   f: GigListFilters,
 ): Promise<{ items: Gig[]; total: number }> {
-  const filters: Record<string, ['eq' | 'ilike', string]> = {};
+  const filters: Record<string, ['eq' | 'ilike', string] | Array<['gte' | 'lte', number]>> = {};
   if (f.status !== 'all') filters.status = ['eq', f.status];
   if (f.grade_level) filters.grade_level = ['eq', f.grade_level];
   if (f.mode) filters.mode = ['eq', f.mode];
   if (f.subject) filters.subject = ['ilike', f.subject.trim()];
+  if (f.district) filters.district = ['eq', f.district];
+  if (f.student_gender) filters.student_gender = ['eq', f.student_gender];
+  const range: Array<['gte' | 'lte', number]> = [];
+  if (f.price) {
+    const [lo, hi] = PRICE_BOUNDS[f.price];
+    if (lo !== null) range.push(['gte', lo + 1]); // 左开：> 下限（整数列，+1 等价）
+    if (hi !== null) range.push(['lte', hi]); // 右闭：<= 上限
+    if (range.length > 0) filters.hourly_rate = range;
+  }
+  const order =
+    f.sort === 'rate_desc'
+      ? 'hourly_rate.desc.nullslast,created_at.desc,id.desc'
+      : 'created_at.desc,id.desc';
   const { data, total } = await client(env).query<Gig[]>('gigs', {
     select: '*',
     filters,
-    order: 'created_at.desc,id.desc',
+    order,
     limit: f.pageSize,
     offset: (f.page - 1) * f.pageSize,
     prefer: 'count=exact',

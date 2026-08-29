@@ -1,7 +1,7 @@
 # SPEC-001: 家教单发布与接单（CS_tutoring 根级规范）
 
-> **规范状态:** 待批准（2026-08-29，v0.3.x 修订稿待用户确认；v0.2.0 及此前已批准）
-> **版本:** v0.3.3
+> **规范状态:** 待批准（2026-08-30，v0.4.0 修订稿待用户确认；v0.2.0 及此前已批准）
+> **版本:** v0.4.0
 > **负责人:** PO/TL/QA: 用户（单人项目）
 > **代码包路径:** `src/`（React 前端）、`bff/src/`（Hono BFF）、`functions/api/[[route]].js`（Pages Function 产物）、`supabase/migrations/`（数据库迁移）
 > **最后修改:** 见 Git 提交记录（仓库尚无提交）
@@ -23,7 +23,9 @@
 | 单子状态 | GigStatus | 枚举 | 家教单生命周期状态 | `type GigStatus` | `gigs.status VARCHAR(10)` | `open`, `matched`, `closed` |
 | 授课模式 | LessonMode | 枚举 | 线上或线下授课 | `type LessonMode` | `gigs.mode VARCHAR(10)` | `online`, `offline` |
 | 年级段 | GradeLevel | 枚举 | 学员所处年级段 | `type GradeLevel` | `gigs.grade_level VARCHAR(10)` | `primary`, `junior`, `senior`, `college` |
-| 区域 | Region | 值对象 | 学员所在城市或区域，线上、线下单都必填 | `region` 字段 | `gigs.region VARCHAR(40) NOT NULL` | `杭州市` |
+| 区域 | Region | 值对象 | 单子详细地点（区县 + 小区/地标自由文本），线上、线下单都必填；示例格式「岳麓区·梅溪湖壹号」 | `region` 字段 | `gigs.region VARCHAR(40) NOT NULL` | `岳麓区·梅溪湖壹号` |
+| 区县 | District | 枚举 | 单子所在长沙区县，区域筛选维度；「其他」兜底无明确区县归属（宁乡/浏阳等） | `district` 字段 | `gigs.district VARCHAR(20) CHECK 枚举 NOT NULL` | `yuelu` |
+| 时薪 | HourlyRate | 值对象 | 报酬的结构化数值（元/小时），价格筛选与排序维度；存量无法解析或按次/面议时为 NULL | `hourly_rate` 字段 | `gigs.hourly_rate INT NULL` | `80` |
 | 学员性别 | StudentGender | 枚举 | 学员性别标注，未知可缺省 | `type StudentGender` | `gigs.student_gender VARCHAR(10)` | `male`, `female`, `unknown` |
 | 学员情况 | StudentInfo | 值对象 | 学员的分数、基础、性格等补充描述 | `student_info` 字段 | `gigs.student_info TEXT` | `数学 85/150，基础较弱` |
 | 站点配置 | SiteConfig | 值对象 | 全站单行配置：兜底联系方式与弹层提示（发布者资料缺失时回退） | `interface SiteConfig` | `site_config` 表（恒 1 行，id=1） | `SiteConfig { wxid, qr_image_url, notice }` |
@@ -31,7 +33,7 @@
 | 用户角色 | ProfileRole | 枚举 | 管理员或普通用户 | `type ProfileRole` | `profiles.role VARCHAR(10)` | `admin`, `free` |
 | 管理员 | Admin | 服务 | profiles.role='admin' 的登录用户，唯一可写角色 | BFF `assertAdmin()` | 无独立表 | — |
 
-**一致性保障:** 所有代码中的枚举、实体、列名必须来自本表格；`GigStatus`/`LessonMode`/`GradeLevel`/`ProfileRole` 四个枚举的成员与顺序以本表为唯一出处（`open` < `matched` < `closed`；`online` < `offline`；`primary` < `junior` < `senior` < `college`；`admin` < `free`）。
+**一致性保障:** 所有代码中的枚举、实体、列名必须来自本表格；`GigStatus`/`LessonMode`/`GradeLevel`/`StudentGender`/`ProfileRole`/`District` 六个枚举的成员与顺序以本表为唯一出处（`open` < `matched` < `closed`；`online` < `offline`；`primary` < `junior` < `senior` < `college`；`male` < `female` < `unknown`；`admin` < `free`；`wangcheng` < `kaifu` < `yuelu` < `furong` < `tianxin` < `yuhua` < `changsha_county` < `other`）。
 
 ---
 
@@ -63,6 +65,28 @@
     当 访客向 GET /api/v1/gigs?grade_level=junior&mode=offline&subject=数学 发送请求
     那么 响应状态码是 200
     且 data 中每条记录满足 grade_level 为 "junior" 且 mode 为 "offline" 且 subject 为 "数学"
+
+  场景: 按区县筛选
+    假设 数据库中存在 district "yuelu" 与 "kaifu" 的 open 单子各 1 条
+    当 访客向 GET /api/v1/gigs?district=yuelu 发送请求
+    那么 响应状态码是 200
+    且 data 中只含 district 为 "yuelu" 的单子
+
+  场景: 按价格档筛选（hourly_rate 为 NULL 的单子不命中）
+    假设 数据库中存在 hourly_rate 为 60、90、NULL 的 open 单子各 1 条
+    当 访客向 GET /api/v1/gigs?price=50-80 发送请求
+    那么 响应状态码是 200
+    且 data 中只含 hourly_rate 为 60 的单子（NULL 不参与价格筛选）
+
+  场景: 按时薪排序（NULL 殿后）
+    当 访客向 GET /api/v1/gigs?sort=rate_desc 发送请求
+    那么 响应状态码是 200
+    且 data 中 hourly_rate 非空的单子按 hourly_rate 降序在前，hourly_rate 为 NULL 的单子殿后（殿后段保持 created_at 降序）
+
+  场景: 按学员性别筛选
+    当 访客向 GET /api/v1/gigs?student_gender=female 发送请求
+    那么 响应状态码是 200
+    且 data 中每条记录满足 student_gender 为 "female"（student_gender 为 unknown 的旧单不会命中 male/female 筛选）
 
   场景: 首页空态
     假设 数据库中不存在 status 为 "open" 的单子
@@ -286,6 +310,8 @@
 - 响应外壳: 单资源 `{data}`；列表 `{data, meta}`；错误 `{error, code, detail?}`。
 - `status` 查询参数取值 `open | matched | closed | all`，缺省 `open`；非法取值返回 422。
 - `subject` 筛选为 trim 后不区分大小写的精确匹配（`lower(subject) = lower($subject)`）；筛选值含 `*` 或 `%` 时返回 422 `VALIDATION_ERROR`（通配符不作为筛选语法，v0.2.1 补钉）。
+- 列表筛选参数（v0.4.0）: `district` 取值 `wangcheng | kaifu | yuelu | furong | tianxin | yuhua | changsha_county | other`；`price` 档位取值 `le50 | 50-80 | 80-120 | 120-200 | gt200`（按 `hourly_rate` 过滤，NULL 不命中任何档位）；`student_gender` 取值 `male | female`（unknown 表示未标注，不可作为筛选值）；`sort` 取值 `newest`（缺省，created_at desc）| `rate_desc`（hourly_rate 非空按其降序在前，NULL 殿后，殿后段保持 created_at desc）。任一非法取值返回 422 `VALIDATION_ERROR`。
+- `Gig` 响应与 `GigCreate`/`GigUpdate` 请求体新增 `district`（创建必填，枚举）与 `hourly_rate`（可空整数 0..10000，元/小时）；`region` 语义收窄为「详细地点」自由文本，约束不变。
 - 请求体中的未知字段一律忽略，不报错。
 - `GET /gigs/:id` 响应 data 为 `GigDetail = Gig + publisher_contact`；`publisher_contact: {wxid, qr_image_url}` 取自发布者 profiles 行联系资料，两字段均可为 null（未设置）。列表响应不含 publisher_contact。
 - `PATCH /me` 请求体为 `{wxid?, qr_image_url?}`（至少一项）；`wxid` 显式 null 合法（清空）。二维码 URL 只经上传回写流程产生。
@@ -308,6 +334,8 @@
 | 年级段 | `grade_level VARCHAR(10)` | CHECK in 枚举 | 是 | — | `grade_level {enum}` |
 | 授课模式 | `mode VARCHAR(10)` | CHECK in 枚举 | 是 | — | `mode {enum}` |
 | 区域 | `region VARCHAR(40)` | 非空，trim 后 1..40 | 是 | — | `region {type: string, maxLength: 40}` |
+| 区县 | `district VARCHAR(20)` | CHECK in 枚举（8 成员，§1） | 是 | — | `district {enum}` |
+| 时薪 | `hourly_rate INT` | CHECK 0..10000 | 否 | NULL | `hourly_rate {type: [integer, null]}` |
 | 学员性别 | `student_gender VARCHAR(10)` | CHECK in 枚举 | 是 | `unknown` | `student_gender {enum}` |
 | 学员情况 | `student_info TEXT` | trim 后非空且 ≤500 字符 | 是 | — | `student_info {type: string, maxLength: 500}` |
 | 报酬 | `rate VARCHAR(40)` | 自由文本 | 否 | NULL | `rate {type: [string, null]}` |
@@ -319,7 +347,14 @@
 | 创建时间 | `created_at timestamptz` | — | 是 | `now()` | `created_at {format: date-time}` |
 | 更新时间 | `updated_at timestamptz` | — | 是 | `now()` | `updated_at {format: date-time}` |
 
-约束: `region`、`student_info` 为 NOT NULL；`student_gender` 为 NOT NULL DEFAULT 'unknown'。
+约束: `district`、`region`、`student_info` 为 NOT NULL；`student_gender` 为 NOT NULL DEFAULT 'unknown'；`district` 索引 `idx_gigs_district`、`hourly_rate` 索引 `idx_gigs_hourly_rate`（v0.4.0 迁移 0003）。
+
+### 4.1.1 存量清洗规则（v0.4.0，迁移 0003 配套）
+
+对存量 117 条（2026-08-30 快照）一次性回填，规则如下：
+
+- **district 回填**：`region` 以「X区·」或「X区」开头（X ∈ 芙蓉/天心/雨花/开福/岳麓/望城）映射到对应枚举成员；「长沙县」开头映射 `changsha_county`；无区前缀的条目按小区/地标实际位置人工归类（9 条清单与归属见迁移 0003 文件头注释，经用户确认），无法确认的归 `other`。
+- **hourly_rate 回填**：对 `rate` 做宽松搜索正则 `(\d+)(?:\s*[-~至]\s*(\d+))?\s*元\s*/\s*小时`；命中双值（如 `100-110元/小时`）取整数均值；仅命中单值取该值；未命中（`50元左右/次`、按次计价、面议等）置 NULL。`rate` 原文一律不改动，展示语义不受影响。
 
 ### 4.2 site_config 表（单行，id 恒为 1）
 
@@ -384,10 +419,10 @@ states:
 
 ### 5.2 字段必填性与 NULL 触发条件
 
-- 必填字段（POST 必须提供且校验通过）: `title`、`subject`、`grade_level`、`mode`、`region`、`student_info`、`requirements`。
+- 必填字段（POST 必须提供且校验通过）: `title`、`subject`、`grade_level`、`mode`、`region`、`district`、`student_info`、`requirements`。
 - `student_gender` 可缺省：请求体缺省或显式 null 时存 `unknown`；显式提供时必须为枚举成员。
-- 可空字段（NULL 触发条件）：`rate`、`schedule`、`contact_wxid`、`notice` 在请求体中缺省或显式为 null 时存 NULL（`notice` 另有 `"" → null` 规范化）；PATCH 显式置 null 为合法操作。
-- PATCH 对合并后的最终实体整体校验：合并后任何必填字段为缺失或空（含 `region`、`student_info`）即 422 `VALIDATION_ERROR`。
+- 可空字段（NULL 触发条件）：`hourly_rate`、`rate`、`schedule`、`contact_wxid`、`notice` 在请求体中缺省或显式为 null 时存 NULL（`notice` 另有 `"" → null` 规范化）；PATCH 显式置 null 为合法操作。
+- PATCH 对合并后的最终实体整体校验：合并后任何必填字段为缺失或空（含 `region`、`district`、`student_info`）即 422 `VALIDATION_ERROR`。
 
 ### 5.3 校验器函数签名（BFF 内，`bff/src/lib/validators.ts`）
 
@@ -405,6 +440,8 @@ assertTransition(from: GigStatus, to: GigStatus): void   // 非法迁移抛 Hono
 - `grade_level`: 枚举成员
 - `mode`: 枚举成员
 - `region`: trim 后长度 1..40（必填）
+- `district`: 枚举成员（必填，8 成员见 §1）
+- `hourly_rate`: 整数 0..10000，可空
 - `student_gender`: 枚举成员；请求体缺省或显式 null 时取 `unknown`
 - `student_info`: trim 后长度 1..500（必填）
 - `rate`: 长度 ≤40，可空
@@ -490,6 +527,10 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | Gherkin: 首页空态 | REQ-VIEW-03 | 验收测试 | TC-VIEW-003 | 已自动化（tests/view-components.test.tsx，2026-08-29 经用户确认新增 @testing-library/react + happy-dom） |
 | Gherkin: 详情联系弹层 | REQ-VIEW-04 | 验收测试 | TC-VIEW-004 | 已自动化（tests/view-components.test.tsx，v0.2 两分支规则；M6 按 v0.3 三级回退更新） |
 | Gherkin: 已匹配单子详情 | REQ-VIEW-05 | 验收测试 | TC-VIEW-005 | 已自动化（tests/view-components.test.tsx，matched/closed 双状态徽标 + 按钮禁用） |
+| Gherkin: 按区县筛选 | REQ-VIEW-08 | 验收测试 | TC-VIEW-008 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
+| Gherkin: 按价格档筛选（NULL 不命中） | REQ-VIEW-09 | 验收测试 | TC-VIEW-009 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
+| Gherkin: 按时薪排序（NULL 殿后） | REQ-VIEW-10 | 验收测试 | TC-VIEW-010 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
+| Gherkin: 按学员性别筛选 | REQ-VIEW-11 | 验收测试 | TC-VIEW-011 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
 | Gherkin: 不存在的单子 | REQ-VIEW-06 | 验收测试 | TC-VIEW-006 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 发布成功 | REQ-ADMIN-01 | 验收测试 | TC-ADMIN-001 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 缺 region 被拒绝 | REQ-ADMIN-02 | 验收测试 | TC-ADMIN-002 | 已自动化（bff/tests 路由+校验器双层） |
@@ -559,3 +600,4 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | 2026-08-29 | v0.3.1 | UI 简化（用户 PO 指示）: 删除 /admin「联系方式设置」入口与页面（site_config 的 GET/PATCH API 保留，notice 编辑从此无 UI）；用户中心二维码合并为单按钮（选中即自动上传启用）；微信号合并为单按钮（输入框留空保存 = 显式置空，回退站点兜底） | 4670cc9 |
 | 2026-08-29 | v0.3.2 | 发布表单「授课模式」新建默认值改为「线下」；存量 117 条 mode 由 online 回滚为 offline（用户确认 v0.3.0 轮对「以后默认为线下」的解读有误并已纠正；编辑表单不受影响，仍按单子现有值填充） | 98cba5b |
 | 2026-08-29 | v0.3.3 | 联系弹层操作区拆分（用户 PO 指示）：「保存二维码」+「复制微信号」双按钮并排。保存 = fetch blob 触发浏览器下载（跨域 URL 直接挂 download 会被忽略），微信 X5 拦截时降级新窗打开原图供长按；H5 无一键存相册能力（JS-SDK v1 排除）。数据侧同日完成：小助手账号（3435718204）资料录入 + 117 条存量单 published_by 归属小助手 | （待提交） |
+| 2026-08-30 | v0.4.0 | 筛选增强（用户三轮对齐确认）: gigs 新增 `district` 枚举列（8 成员：望城/开福/岳麓/芙蓉/天心/雨花/长沙县/其他）与 `hourly_rate` 数值列（元/小时，可空），`region` 语义收窄为「详细地点」文本不变更约束；列表接口新增 `district`/`price` 档位/`student_gender`/`sort` 四个筛选参数（price 按 hourly_rate 过滤且 NULL 不命中，sort 支持 newest \| rate_desc 且 NULL 殿后）；POST/PATCH 契约同步 district 必填 + hourly_rate 可空；存量 117 单清洗规则见 §4.1.1（region 前缀解析 + rate 宽松正则，9 条无前缀人工归类）；前端筛选区改 BA chip 点选 + 展开区 | （待提交） |

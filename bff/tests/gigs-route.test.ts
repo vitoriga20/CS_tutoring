@@ -37,7 +37,9 @@ const h = vi.hoisted(() => {
       subject: '数学',
       grade_level: 'senior',
       mode: 'online',
-      region: '杭州市',
+      region: '岳麓区·梅溪湖壹号',
+      district: 'yuelu',
+      hourly_rate: null,
       student_gender: 'unknown',
       student_info: '基础较弱',
       rate: null,
@@ -54,29 +56,50 @@ const h = vi.hoisted(() => {
     return row;
   }
 
-  // PostgREST 语义的内存实现（eq / ilike 无通配符精确忽略大小写 / order / offset+limit / count）
+  // PostgREST 语义的内存实现（eq / ilike 无通配符精确忽略大小写 / gte / lte（NULL 不命中）/
+  // 同列多条件 / order（含 nullslast）/ offset+limit / count）
   class SupabaseRest {
     query(table: string, q: any) {
       let rows: Row[] = [...(store[table as keyof typeof store] as Row[])];
-      const filters = (q.filters ?? {}) as Record<string, [string, unknown]>;
-      for (const [col, [op, val]] of Object.entries(filters)) {
-        rows = rows.filter((r) => {
-          if (op === 'eq') return r[col] === val;
-          if (op === 'ilike') return String(r[col]).toLowerCase() === String(val).toLowerCase();
-          throw new Error(`fake 未实现 op=${op}`);
-        });
+      const filters = (q.filters ?? {}) as Record<string, unknown>;
+      for (const [col, raw] of Object.entries(filters)) {
+        // 同列多条件（数组套数组）或单条件；统一拍平成条件列表
+        const conds: [string, unknown][] = Array.isArray((raw as unknown[])?.[0])
+          ? (raw as [string, unknown][])
+          : [(raw as [string, unknown])];
+        rows = rows.filter((r) =>
+          conds.every(([op, val]) => {
+            if (op === 'eq') return r[col] === val;
+            if (op === 'ilike') return String(r[col]).toLowerCase() === String(val).toLowerCase();
+            if (op === 'gte' || op === 'lte') {
+              // NULL 不参与数值比较（spec v0.4.0：hourly_rate NULL 不命中价格档）
+              const v = r[col] as number | null;
+              if (v === null || v === undefined) return false;
+              return op === 'gte' ? v >= (val as number) : v <= (val as number);
+            }
+            throw new Error(`fake 未实现 op=${op}`);
+          }),
+        );
       }
       if (q.order) {
         const parts = String(q.order).split(',').map((s) => {
-          const [col, dir] = s.split('.');
-          return { col, desc: dir === 'desc' };
+          const [col, dir, nulls] = s.split('.');
+          return { col, desc: dir === 'desc', nullsLast: nulls === 'nullslast' };
         });
         rows.sort((a, b) => {
-          for (const { col, desc } of parts) {
-            const av = a[col] as string | number;
-            const bv = b[col] as string | number;
+          for (const { col, desc, nullsLast } of parts) {
+            const av = a[col] as string | number | null;
+            const bv = b[col] as string | number | null;
+            const aNull = av === null || av === undefined;
+            const bNull = bv === null || bv === undefined;
+            // nullslast：NULL 殿后；desc 下 NULL 视为正无穷
+            if (aNull && bNull) continue;
+            if (aNull !== bNull) {
+              if (nullsLast) return aNull ? 1 : -1;
+              return aNull ? -1 : 1;
+            }
             if (av === bv) continue;
-            const cmp = av < bv ? -1 : 1;
+            const cmp = (av as string | number) < (bv as string | number) ? -1 : 1;
             return desc ? -cmp : cmp;
           }
           return 0;
@@ -176,7 +199,9 @@ const VALID_GIG = {
   subject: '数学',
   grade_level: 'senior',
   mode: 'online',
-  region: '杭州市',
+  region: '岳麓区·梅溪湖壹号',
+  district: 'yuelu',
+  hourly_rate: 150,
   student_gender: 'female',
   student_info: '女生，数学 85/150，基础较弱',
   requirements: '每周两次线上辅导',
@@ -229,6 +254,69 @@ describe('GET /api/v1/gigs（公开列表）', () => {
     expect(res.status).toBe(422);
     const body = await jsonBody(res);
     expect(body.code).toBe('VALIDATION_ERROR');
+  });
+
+  // ── v0.4.0 新筛选参数（spec §2.1 场景） ──────────────────────
+  it('TC-VIEW-008：district 筛选只返回对应区县', async () => {
+    h.seedGig({ district: 'yuelu', title: '岳麓单' });
+    h.seedGig({ district: 'kaifu', title: '开福单' });
+    const res = await app.request('/api/v1/gigs?district=yuelu', authInit(null), ENV, EXEC_CTX);
+    expect(res.status).toBe(200);
+    const body = await jsonBody(res);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].district).toBe('yuelu');
+    expect(body.data[0].title).toBe('岳麓单');
+  });
+
+  it('TC-VIEW-009：price 档位筛选，hourly_rate NULL 不命中（左开右闭）', async () => {
+    h.seedGig({ hourly_rate: 60, title: '60 元' }); // (50,80] 命中
+    h.seedGig({ hourly_rate: 90, title: '90 元' }); // 不命中
+    h.seedGig({ hourly_rate: null, title: '面议单' }); // NULL 不命中
+    h.seedGig({ hourly_rate: 50, title: '50 元' }); // 边界：(50,80] 不含 50
+    h.seedGig({ hourly_rate: 80, title: '80 元' }); // 边界：含 80
+    const res = await app.request('/api/v1/gigs?price=50-80', authInit(null), ENV, EXEC_CTX);
+    expect(res.status).toBe(200);
+    const body = await jsonBody(res);
+    const titles = body.data.map((g: { title: string }) => g.title).sort();
+    expect(titles).toEqual(['60 元', '80 元']);
+  });
+
+  it('TC-VIEW-010：sort=rate_desc 时薪降序在前，NULL 殿后（殿后段保持 created_at 降序）', async () => {
+    const t1 = h.seedGig({ hourly_rate: 60, title: '旧-60 元', created_at: '2026-08-29T01:00:00.000Z' });
+    const t2 = h.seedGig({ hourly_rate: 100, title: '旧-100 元', created_at: '2026-08-29T02:00:00.000Z' });
+    h.seedGig({ hourly_rate: null, title: '新-面议A', created_at: '2026-08-29T03:00:00.000Z' });
+    h.seedGig({ hourly_rate: null, title: '新-面议B', created_at: '2026-08-29T04:00:00.000Z' });
+    const res = await app.request('/api/v1/gigs?sort=rate_desc', authInit(null), ENV, EXEC_CTX);
+    expect(res.status).toBe(200);
+    const body = await jsonBody(res);
+    expect(body.data.map((g: { title: string }) => g.title)).toEqual([
+      '旧-100 元',
+      '旧-60 元',
+      '新-面议B',
+      '新-面议A',
+    ]);
+    void t1;
+    void t2;
+  });
+
+  it('TC-VIEW-011：student_gender 筛选命中对应性别，unknown 不命中', async () => {
+    h.seedGig({ student_gender: 'female', title: '女生单' });
+    h.seedGig({ student_gender: 'male', title: '男生单' });
+    h.seedGig({ student_gender: 'unknown', title: '旧单-未标注' });
+    const res = await app.request('/api/v1/gigs?student_gender=female', authInit(null), ENV, EXEC_CTX);
+    expect(res.status).toBe(200);
+    const body = await jsonBody(res);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].title).toBe('女生单');
+  });
+
+  it('v0.4.0：district/price/student_gender/sort 非法取值 → 422', async () => {
+    for (const q of ['district=liuyang', 'price=100-300', 'student_gender=unknown', 'sort=cheap']) {
+      const res = await app.request(`/api/v1/gigs?${q}`, authInit(null), ENV, EXEC_CTX);
+      expect(res.status, q).toBe(422);
+      const body = await jsonBody(res);
+      expect(body.code, q).toBe('VALIDATION_ERROR');
+    }
   });
 
   it('status=all 返回全部状态', async () => {

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "gig.schema.json",
   "title": "Gig（数据库实体，gigs 表整行）",
-  "description": "与 supabase/migrations/0001_init.sql 的 gigs 表一一对应（spec v0.2.0）；API 契约见 openapi.yaml 的 Gig。",
+  "description": "与 supabase/migrations/ 0001_init.sql + 0003_district_rate.sql 的 gigs 表一一对应（spec v0.4.0）；API 契约见 openapi.yaml 的 Gig。",
   "type": "object",
   "properties": {
     "id": { "type": "string", "format": "uuid" },
@@ -11,6 +11,8 @@
     "grade_level": { "enum": ["primary", "junior", "senior", "college"] },
     "mode": { "enum": ["online", "offline"] },
     "region": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "district": { "enum": ["wangcheng", "kaifu", "yuelu", "furong", "tianxin", "yuhua", "changsha_county", "other"] },
+    "hourly_rate": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 },
     "student_gender": { "enum": ["male", "female", "unknown"] },
     "student_info": { "type": "string", "minLength": 1, "maxLength": 500 },
     "rate": { "type": ["string", "null"], "maxLength": 40 },
@@ -23,7 +25,7 @@
     "updated_at": { "type": "string", "format": "date-time" }
   },
   "required": [
-    "id", "title", "subject", "grade_level", "mode", "region",
+    "id", "title", "subject", "grade_level", "mode", "region", "district",
     "student_gender", "student_info", "requirements",
     "status", "published_by", "created_at", "updated_at"
   ]

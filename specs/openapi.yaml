@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: CS_tutoring BFF API
-  version: v0.3.0
+  version: v0.4.0
   description: 家教单发布与接单平台 BFF。唯一事实来源，与 specs/spec.md 第 3/6 部分同源。错误响应统一 {error, code, detail?}。
 servers:
   - url: https://cstutoring.pages.dev
@@ -57,6 +57,22 @@ paths:
           in: query
           schema: { type: string, maxLength: 40 }
           description: trim 后不区分大小写的精确匹配
+        - name: district
+          in: query
+          schema: { $ref: '#/components/schemas/District' }
+          description: 区县筛选（v0.4.0），缺省不过滤；非法取值返回 422
+        - name: price
+          in: query
+          schema: { type: string, enum: [le50, '50-80', 80-120, 120-200, gt200] }
+          description: 时薪档位筛选（v0.4.0），按 hourly_rate 过滤；hourly_rate 为 NULL 的单子不命中任何档位；非法取值返回 422
+        - name: student_gender
+          in: query
+          schema: { type: string, enum: [male, female] }
+          description: 学员性别筛选（v0.4.0）；unknown 表示未标注，不可作为筛选值；非法取值返回 422
+        - name: sort
+          in: query
+          schema: { type: string, enum: [newest, rate_desc], default: newest }
+          description: 排序（v0.4.0）；newest=created_at desc；rate_desc=hourly_rate 非空降序在前、NULL 殿后（殿后段保持 created_at desc）；非法取值返回 422
         - name: page
           in: query
           schema: { type: integer, minimum: 1, default: 1 }
@@ -89,7 +105,9 @@ paths:
                     subject: 数学
                     grade_level: senior
                     mode: online
-                    region: 杭州市
+                    region: 岳麓区·梅溪湖壹号
+                    district: yuelu
+                    hourly_rate: 150
                     student_gender: female
                     student_info: 女生，数学 85/150，基础较弱，计算易粗心
                     rate: 150/小时
@@ -118,7 +136,9 @@ paths:
               subject: 数学
               grade_level: senior
               mode: online
-              region: 杭州市
+              region: 岳麓区·梅溪湖壹号
+              district: yuelu
+              hourly_rate: 150
               student_gender: female
               student_info: 女生，数学 85/150，基础较弱，计算易粗心
               rate: 150/小时
@@ -320,12 +340,16 @@ components:
     GradeLevel:
       type: string
       enum: [primary, junior, senior, college]
+    District:
+      type: string
+      enum: [wangcheng, kaifu, yuelu, furong, tianxin, yuhua, changsha_county, other]
+      description: 长沙区县枚举（v0.4.0）；other 兜底无明确区县归属（宁乡/浏阳等）。
     StudentGender:
       type: string
       enum: [male, female, unknown]
     Gig:
       type: object
-      required: [id, title, subject, grade_level, mode, region, student_gender, student_info, requirements, status, published_by, created_at, updated_at]
+      required: [id, title, subject, grade_level, mode, region, district, student_gender, student_info, requirements, status, published_by, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
         title: { type: string, maxLength: 60 }
@@ -333,6 +357,8 @@ components:
         grade_level: { $ref: '#/components/schemas/GradeLevel' }
         mode: { $ref: '#/components/schemas/LessonMode' }
         region: { type: string, maxLength: 40 }
+        district: { $ref: '#/components/schemas/District' }
+        hourly_rate: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
         student_gender: { $ref: '#/components/schemas/StudentGender' }
         student_info: { type: string, maxLength: 500 }
         rate: { type: [string, 'null'], maxLength: 40 }
@@ -345,20 +371,22 @@ components:
         updated_at: { type: string, format: date-time }
     GigCreate:
       type: object
-      required: [title, subject, grade_level, mode, region, student_info]
+      required: [title, subject, grade_level, mode, region, district, student_info]
       properties:
         title: { type: string, minLength: 1, maxLength: 60 }
         subject: { type: string, minLength: 1, maxLength: 40 }
         grade_level: { $ref: '#/components/schemas/GradeLevel' }
         mode: { $ref: '#/components/schemas/LessonMode' }
         region: { type: string, minLength: 1, maxLength: 40 }
+        district: { $ref: '#/components/schemas/District' }
+        hourly_rate: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
         student_gender: { $ref: '#/components/schemas/StudentGender' }
         student_info: { type: string, minLength: 1, maxLength: 500 }
         rate: { type: [string, 'null'], maxLength: 40 }
         schedule: { type: [string, 'null'], maxLength: 120 }
         requirements: { type: string, minLength: 1, maxLength: 2000 }
         contact_wxid: { type: [string, 'null'], maxLength: 40 }
-      description: region 与 student_info 必填；student_gender 缺省 unknown（specs/spec.md §5.2）；未知字段忽略。
+      description: region、district 与 student_info 必填；hourly_rate 可空（面议/按次为 null）；student_gender 缺省 unknown（specs/spec.md §5.2）；未知字段忽略。
     GigUpdate:
       type: object
       minProperties: 1
@@ -368,6 +396,8 @@ components:
         grade_level: { $ref: '#/components/schemas/GradeLevel' }
         mode: { $ref: '#/components/schemas/LessonMode' }
         region: { type: string, minLength: 1, maxLength: 40 }
+        district: { $ref: '#/components/schemas/District' }
+        hourly_rate: { type: [integer, 'null'], minimum: 0, maximum: 10000 }
         student_gender: { $ref: '#/components/schemas/StudentGender' }
         student_info: { type: string, minLength: 1, maxLength: 500 }
         rate: { type: [string, 'null'], maxLength: 40 }
@@ -375,7 +405,7 @@ components:
         requirements: { type: string, minLength: 1, maxLength: 2000 }
         contact_wxid: { type: [string, 'null'], maxLength: 40 }
         status: { $ref: '#/components/schemas/GigStatus' }
-      description: 对合并后的最终实体整体校验（region、student_info 合并后必须非空）；status 迁移受状态机约束。
+      description: 对合并后的最终实体整体校验（region、district、student_info 合并后必须非空）；status 迁移受状态机约束。
     SiteConfig:
       type: object
       required: [wxid, qr_image_url]

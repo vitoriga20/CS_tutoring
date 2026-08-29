@@ -45,7 +45,9 @@ function makeGig(overrides: Partial<Gig> = {}): Gig {
     subject: '数学',
     grade_level: 'senior',
     mode: 'offline',
-    region: '杭州市·西湖区',
+    region: '西湖区·文一西路',
+    district: 'yuelu',
+    hourly_rate: 150,
     student_gender: 'female',
     student_info: '女生，数学 85/150，基础较弱。',
     rate: '150/小时',
@@ -193,7 +195,9 @@ describe('GigForm（T-M4-3：客户端校验 + 422 details 字段映射 + 载荷
     renderForm(onSubmit);
     fill(/^标题/, '  高二数学一对一  ');
     fill(/^科目/, '数学');
-    fill(/^区域/, '杭州市');
+    // 区县下拉选岳麓区；详细地点必填
+    fireEvent.change(screen.getByLabelText(/^区县/), { target: { value: 'yuelu' } });
+    fill(/^详细地点/, '梅溪湖壹号');
     fill(/^学员情况/, '基础较弱');
     fill(/^对老师的要求/, '每周两次');
     fireEvent.click(screen.getByRole('button', { name: '发布' }));
@@ -201,11 +205,31 @@ describe('GigForm（T-M4-3：客户端校验 + 422 details 字段映射 + 载荷
       expect(onSubmit).toHaveBeenCalledWith(
         expect.objectContaining({
           title: '高二数学一对一',
-          region: '杭州市',
+          district: 'yuelu',
+          region: '梅溪湖壹号',
+          hourly_rate: null,
           rate: null,
           schedule: null,
           contact_wxid: null,
         }),
+      ),
+    );
+  });
+
+  it('时薪填写后 rate 文本自动生成；勾面议则 hourly_rate 为 null', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    renderForm(onSubmit);
+    fill(/^标题/, '高二数学一对一');
+    fill(/^科目/, '数学');
+    fireEvent.change(screen.getByLabelText(/^区县/), { target: { value: 'yuelu' } });
+    fill(/^详细地点/, '梅溪湖壹号');
+    fill(/^学员情况/, '基础较弱');
+    fill(/^对老师的要求/, '每周两次');
+    fill(/^时薪/, '80');
+    fireEvent.click(screen.getByRole('button', { name: '发布' }));
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ hourly_rate: 80, rate: '80元/小时' }),
       ),
     );
   });
@@ -219,10 +243,11 @@ describe('GigForm（T-M4-3：客户端校验 + 422 details 字段映射 + 载荷
     renderForm(onSubmit);
     fill(/^标题/, '高二数学一对一');
     fill(/^科目/, '数学');
-    fill(/^区域/, '杭州市');
+    fireEvent.change(screen.getByLabelText(/^区县/), { target: { value: 'yuelu' } });
+    fill(/^详细地点/, '杭州市');
     fill(/^学员情况/, '基础较弱');
     fill(/^对老师的要求/, '每周两次');
     fireEvent.click(screen.getByRole('button', { name: '发布' }));
-    expect(await screen.findByText('区域：长度须在 1..40')).toBeTruthy();
+    expect(await screen.findByText('详细地点：长度须在 1..40')).toBeTruthy();
   });
 });

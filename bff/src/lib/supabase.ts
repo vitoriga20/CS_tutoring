@@ -19,7 +19,8 @@ export type FilterOp =
 
 export interface QueryOptions {
   select?: string;
-  filters?: Record<string, [FilterOp, string | number | boolean]>;
+  // v0.4.0 扩展：同列多条件（价格区间 gte+lte）——值为条件数组时逐条 append，单条件行为不变
+  filters?: Record<string, [FilterOp, string | number | boolean] | Array<[FilterOp, string | number | boolean]>>;
   order?: string; // 例如 'created_at.desc,id.desc'
   limit?: number;
   offset?: number;
@@ -54,8 +55,16 @@ export class SupabaseRest {
     const u = new URL(`${this.base.replace(/\/$/, '')}/rest/v1/${table}`);
     u.searchParams.set('select', q.select ?? '*');
     if (q.filters) {
-      for (const [col, [op, val]] of Object.entries(q.filters)) {
-        u.searchParams.set(col, `${op}.${val}`);
+      for (const [col, val] of Object.entries(q.filters)) {
+        if (Array.isArray(val[0])) {
+          // 同列多条件：逐条 append（URLSearchParams.set 会互相覆盖，必须用 append）
+          for (const [op, v] of val as Array<[FilterOp, string | number | boolean]>) {
+            u.searchParams.append(col, `${op}.${v}`);
+          }
+        } else {
+          const [op, v] = val as [FilterOp, string | number | boolean];
+          u.searchParams.set(col, `${op}.${v}`);
+        }
       }
     }
     if (q.order) u.searchParams.set('order', q.order);

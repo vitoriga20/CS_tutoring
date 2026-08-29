@@ -5,30 +5,35 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { ApiError, type FieldIssue } from '../../services/api';
-import { GRADE_LABEL, MODE_LABEL } from '../../services/labels';
-import type { Gig, GradeLevel, LessonMode, StudentGender } from '../../services/types';
+import { DISTRICT_LABEL, GRADE_LABEL, MODE_LABEL } from '../../services/labels';
+import type { District, Gig, GradeLevel, LessonMode, StudentGender } from '../../services/types';
 
 export interface GigFormValues {
   title: string;
   subject: string;
   grade_level: GradeLevel;
   mode: LessonMode;
+  district: District;
   region: string;
   student_gender: StudentGender;
   student_info: string;
-  rate: string;
+  hourlyRateStr: string;
+  negotiable: boolean;
   schedule: string;
   requirements: string;
   contact_wxid: string;
 }
 
-/** 提交载荷：可空字段空串归一为 null（对齐 §5.2 NULL 触发条件） */
+/** 提交载荷：可空字段空串归一为 null（对齐 §5.2 NULL 触发条件）；
+ *  rate 文本由时薪数字自动生成「N元/小时」，面议/未填时 null（v0.4.0 §5.2） */
 export interface GigFormPayload {
   title: string;
   subject: string;
   grade_level: GradeLevel;
   mode: LessonMode;
+  district: District;
   region: string;
+  hourly_rate: number | null;
   student_gender: StudentGender;
   student_info: string;
   rate: string | null;
@@ -43,10 +48,12 @@ export function gigFormValuesFrom(gig: Gig): GigFormValues {
     subject: gig.subject,
     grade_level: gig.grade_level,
     mode: gig.mode,
+    district: gig.district,
     region: gig.region,
     student_gender: gig.student_gender,
     student_info: gig.student_info,
-    rate: gig.rate ?? '',
+    hourlyRateStr: gig.hourly_rate === null ? '' : String(gig.hourly_rate),
+    negotiable: gig.hourly_rate === null,
     schedule: gig.schedule ?? '',
     requirements: gig.requirements,
     contact_wxid: gig.contact_wxid ?? '',
@@ -58,10 +65,12 @@ const EMPTY_VALUES: GigFormValues = {
   subject: '',
   grade_level: 'primary',
   mode: 'offline', // 新建默认「线下」（用户 PO 指示 2026-08-29 v0.3.2；编辑时以单子现有值为准）
+  district: '' as District,
   region: '',
   student_gender: 'unknown',
   student_info: '',
-  rate: '',
+  hourlyRateStr: '',
+  negotiable: false,
   schedule: '',
   requirements: '',
   contact_wxid: '',
@@ -72,13 +81,20 @@ function clientValidate(v: GigFormValues): FieldIssue[] {
   const len = (s: string) => s.trim().length;
   if (len(v.title) < 1 || len(v.title) > 60) issues.push({ field: 'title', reason: '长度须在 1..60' });
   if (len(v.subject) < 1 || len(v.subject) > 40) issues.push({ field: 'subject', reason: '长度须在 1..40' });
+  if (!v.district) issues.push({ field: 'district', reason: '请选择区县' });
   if (len(v.region) < 1 || len(v.region) > 40) issues.push({ field: 'region', reason: '长度须在 1..40' });
   if (len(v.student_info) < 1 || len(v.student_info) > 500)
     issues.push({ field: 'student_info', reason: '长度须在 1..500' });
   if (len(v.requirements) < 1 || len(v.requirements) > 2000)
     issues.push({ field: 'requirements', reason: '长度须在 1..2000' });
+  // 时薪：面议时不校验；填了必须是 0..10000 整数
+  if (!v.negotiable && v.hourlyRateStr.trim() !== '') {
+    const n = Number(v.hourlyRateStr.trim());
+    if (!Number.isInteger(n) || n < 0 || n > 10000) {
+      issues.push({ field: 'hourly_rate', reason: '须为 0..10000 的整数，或勾选面议' });
+    }
+  }
   for (const [field, max] of [
-    ['rate', 40],
     ['schedule', 120],
     ['contact_wxid', 40],
   ] as const) {
@@ -93,15 +109,19 @@ function toPayload(v: GigFormValues): GigFormPayload {
     const t = s.trim();
     return t === '' ? null : t;
   };
+  const hourly_rate = v.negotiable ? null : v.hourlyRateStr.trim() === '' ? null : Number(v.hourlyRateStr.trim());
+  const rate = hourly_rate === null ? null : `${hourly_rate}元/小时`;
   return {
     title: v.title.trim(),
     subject: v.subject.trim(),
     grade_level: v.grade_level,
     mode: v.mode,
+    district: v.district,
     region: v.region.trim(),
+    hourly_rate,
     student_gender: v.student_gender,
     student_info: v.student_info.trim(),
-    rate: opt(v.rate),
+    rate,
     schedule: opt(v.schedule),
     requirements: v.requirements.trim(),
     contact_wxid: opt(v.contact_wxid),
@@ -113,10 +133,11 @@ const FIELD_LABEL: Record<string, string> = {
   subject: '科目',
   grade_level: '年级段',
   mode: '授课模式',
-  region: '区域',
+  district: '区县',
+  region: '详细地点',
   student_gender: '学员性别',
   student_info: '学员情况',
-  rate: '报酬',
+  hourly_rate: '时薪',
   schedule: '时间',
   requirements: '对老师的要求',
   contact_wxid: '单子专属微信',
@@ -177,10 +198,10 @@ export default function GigForm({ initial, submitLabel, defaultContactWxid, onSu
     }
   }
 
-  const fieldError = (key: keyof GigFormValues & string) =>
+  const fieldError = (key: string) =>
     fieldErrors[key] ? (
       <p className="f-err" role="alert">
-        {FIELD_LABEL[key]}：{fieldErrors[key]}
+        {FIELD_LABEL[key] ?? key}：{fieldErrors[key]}
       </p>
     ) : null;
 
@@ -262,18 +283,40 @@ export default function GigForm({ initial, submitLabel, defaultContactWxid, onSu
         </div>
       </div>
 
-      <label className="f-label" htmlFor="gf-region">区域 * / REGION</label>
-      <input
-        id="gf-region"
-        className="input block-input"
-        type="text"
-        maxLength={40}
-        placeholder="如：杭州市西湖区"
-        value={values.region}
-        onChange={(e) => set('region', e.target.value)}
-        aria-required="true"
-      />
-      {fieldError('region')}
+      <div className="form-grid">
+        <div>
+          <label className="f-label" htmlFor="gf-district">区县 * / DISTRICT</label>
+          <select
+            id="gf-district"
+            className="input block-input"
+            value={values.district}
+            onChange={(e) => set('district', e.target.value as District)}
+            aria-required="true"
+          >
+            <option value="" disabled>请选择区县</option>
+            {(Object.keys(DISTRICT_LABEL) as District[]).map((d) => (
+              <option key={d} value={d}>
+                {DISTRICT_LABEL[d]}
+              </option>
+            ))}
+          </select>
+          {fieldError('district')}
+        </div>
+        <div>
+          <label className="f-label" htmlFor="gf-region">详细地点 * / PLACE</label>
+          <input
+            id="gf-region"
+            className="input block-input"
+            type="text"
+            maxLength={40}
+            placeholder="如：梅溪湖壹号（不重复区名）"
+            value={values.region}
+            onChange={(e) => set('region', e.target.value)}
+            aria-required="true"
+          />
+          {fieldError('region')}
+        </div>
+      </div>
 
       <label className="f-label" htmlFor="gf-student-info">学员情况 * / STUDENT</label>
       <textarea
@@ -290,17 +333,30 @@ export default function GigForm({ initial, submitLabel, defaultContactWxid, onSu
 
       <div className="form-grid">
         <div>
-          <label className="f-label" htmlFor="gf-rate">报酬 / RATE</label>
+          <label className="f-label" htmlFor="gf-rate">时薪（元/小时）/ RATE</label>
           <input
             id="gf-rate"
             className="input block-input"
-            type="text"
-            maxLength={40}
-            placeholder="如：150/小时（可空）"
-            value={values.rate}
-            onChange={(e) => set('rate', e.target.value)}
+            type="number"
+            min={0}
+            max={10000}
+            step={1}
+            inputMode="numeric"
+            placeholder="如：80"
+            value={values.hourlyRateStr}
+            disabled={values.negotiable}
+            onChange={(e) => set('hourlyRateStr', e.target.value)}
           />
-          {fieldError('rate')}
+          {fieldError('hourly_rate')}
+          <label className="f-check" htmlFor="gf-negotiable">
+            <input
+              id="gf-negotiable"
+              type="checkbox"
+              checked={values.negotiable}
+              onChange={(e) => set('negotiable', e.target.checked)}
+            />
+            面议（不参与价格筛选）
+          </label>
         </div>
         <div>
           <label className="f-label" htmlFor="gf-schedule">时间 / SCHEDULE</label>

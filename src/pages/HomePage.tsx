@@ -1,25 +1,37 @@
-// 首页列表（T-M3-2，契约：spec.md §2.1 + §3 分页/筛选参数）
+// 首页列表（T-M3-2 + v0.4.0 筛选增强，契约：spec.md §2.1 + §3）
 // 状态机：pending=骨架屏（6 卡）→ 成功有数据=卡片流 + 分页；成功无数据=空态文案；
 // 失败=错误态 + 重试。空态时不得渲染骨架屏或错误提示（TC-VIEW-003）。
+// 筛选 UI（用户对齐确认 2026-08-30）：区域/科目/年级 BA chip 横排点选（单选，再点取消）；
+// 模式/价格/性别/排序收进「更多筛选」展开区；任何筛选变化回到第 1 页。
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Inbox, SlidersHorizontal } from 'lucide-react';
 import { apiGet } from '../services/api';
 import type { Page } from '../services/types';
-import type { Gig } from '../services/types';
+import type { District, Gig, GigSort, GradeLevel, LessonMode, PriceFilter, StudentGender } from '../services/types';
 import GigCard from '../components/GigCard';
+import { DISTRICT_LABEL, GRADE_LABEL, MODE_LABEL, PRICE_LABEL, SORT_LABEL, SUBJECT_OPTIONS } from '../services/labels';
 
 const PAGE_SIZE = 20;
 const SKELETON_COUNT = 6;
 
+const DISTRICTS = Object.keys(DISTRICT_LABEL) as District[];
+const GRADES = Object.keys(GRADE_LABEL) as GradeLevel[];
+const PRICES = Object.keys(PRICE_LABEL) as PriceFilter[];
+
 export default function HomePage() {
-  const [grade, setGrade] = useState('');
-  const [mode, setMode] = useState('');
-  const [subjectText, setSubjectText] = useState('');
+  const [district, setDistrict] = useState<District | ''>('');
   const [subject, setSubject] = useState('');
+  const [subjectText, setSubjectText] = useState('');
+  const [grade, setGrade] = useState<GradeLevel | ''>('');
+  const [mode, setMode] = useState<LessonMode | ''>('');
+  const [price, setPrice] = useState<PriceFilter | ''>('');
+  const [gender, setGender] = useState<StudentGender | ''>('');
+  const [sort, setSort] = useState<GigSort>('newest');
+  const [moreOpen, setMoreOpen] = useState(false);
   const [page, setPage] = useState(1);
 
-  // 科目输入 350ms 防抖后再发起查询；任何筛选变化回到第 1 页
+  // 科目自定义输入 350ms 防抖后再发起查询；点 chip 立即生效
   useEffect(() => {
     const t = window.setTimeout(() => {
       setSubject(subjectText.trim());
@@ -29,12 +41,16 @@ export default function HomePage() {
   }, [subjectText]);
 
   const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ['gigs', { grade, mode, subject, page }],
+    queryKey: ['gigs', { district, subject, grade, mode, price, gender, sort, page }],
     queryFn: () =>
       apiGet<Page<Gig>>('/gigs', {
+        district: district || undefined,
+        subject: subject || undefined,
         grade_level: grade || undefined,
         mode: mode || undefined,
-        subject: subject || undefined,
+        price: price || undefined,
+        student_gender: gender || undefined,
+        sort,
         page,
         pageSize: PAGE_SIZE,
       }),
@@ -43,6 +59,35 @@ export default function HomePage() {
 
   const meta = data?.meta;
   const totalPages = meta ? Math.max(1, Math.ceil(meta.total / meta.pageSize)) : 1;
+  const activeCount = [district, subject, grade, mode, price, gender, sort !== 'newest'].filter(Boolean).length;
+
+  // chip 单选语义：点已选中的 chip 取消（回 ''）
+  const toggle = <T extends string>(cur: T | '', val: T, set: (v: T | '') => void) => {
+    set(cur === val ? '' : val);
+    setPage(1);
+  };
+
+  const Chip = ({
+    label,
+    active,
+    onClick,
+    title,
+  }: {
+    label: string;
+    active: boolean;
+    onClick: () => void;
+    title?: string;
+  }) => (
+    <button
+      type="button"
+      className={`chip${active ? ' is-on' : ''}`}
+      aria-pressed={active}
+      title={title}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <main className="page">
@@ -54,45 +99,83 @@ export default function HomePage() {
       </header>
 
       <div className="filter-bar">
-        <div className="filter-m">
-          <select
-            className="input"
-            aria-label="按年级段筛选"
-            value={grade}
-            onChange={(e) => {
-              setGrade(e.target.value);
+        <div className="chip-row" role="group" aria-label="按区县筛选">
+          <span className="chip-row__label">区域</span>
+          {DISTRICTS.map((d) => (
+            <Chip
+              key={d}
+              label={DISTRICT_LABEL[d]}
+              active={district === d}
+              onClick={() => toggle(district, d, setDistrict)}
+            />
+          ))}
+        </div>
+
+        <div className="chip-row" role="group" aria-label="按科目筛选">
+          <span className="chip-row__label">科目</span>
+          {SUBJECT_OPTIONS.map((s) => (
+            <Chip key={s} label={s} active={subject === s} onClick={() => {
+              setSubject(subject === s ? '' : s);
+              setSubjectText(subject === s ? '' : s);
               setPage(1);
-            }}
-          >
-            <option value="">全部年级</option>
-            <option value="primary">小学</option>
-            <option value="junior">初中</option>
-            <option value="senior">高中</option>
-            <option value="college">大学</option>
-          </select>
-          <select
-            className="input"
-            aria-label="按授课模式筛选"
-            value={mode}
-            onChange={(e) => {
-              setMode(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">全部模式</option>
-            <option value="online">线上</option>
-            <option value="offline">线下</option>
-          </select>
+            }} />
+          ))}
           <input
-            className="input filter-m__subject"
+            className="chip-custom"
             type="text"
-            aria-label="按科目筛选"
-            placeholder="科目筛选，如：数学"
+            aria-label="自定义科目筛选"
+            placeholder="自定义科目…"
             maxLength={40}
             value={subjectText}
             onChange={(e) => setSubjectText(e.target.value)}
           />
         </div>
+
+        <div className="chip-row" role="group" aria-label="按年级段筛选">
+          <span className="chip-row__label">年级</span>
+          {GRADES.map((g) => (
+            <Chip key={g} label={GRADE_LABEL[g]} active={grade === g} onClick={() => toggle(grade, g, setGrade)} />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="chip more-toggle"
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((v) => !v)}
+        >
+          <SlidersHorizontal size={12} aria-hidden="true" /> 更多筛选
+          {activeCount > 0 && <span className="more-toggle__badge">{activeCount}</span>}
+          <ChevronDown size={12} aria-hidden="true" style={{ transform: moreOpen ? 'rotate(180deg)' : undefined }} />
+        </button>
+
+        {moreOpen && (
+          <div className="more-panel">
+            <div className="chip-row" role="group" aria-label="按授课模式筛选">
+              <span className="chip-row__label">模式</span>
+              {(Object.keys(MODE_LABEL) as LessonMode[]).map((m) => (
+                <Chip key={m} label={MODE_LABEL[m]} active={mode === m} onClick={() => toggle(mode, m, setMode)} />
+              ))}
+            </div>
+            <div className="chip-row" role="group" aria-label="按时薪筛选">
+              <span className="chip-row__label">时薪</span>
+              {PRICES.map((p) => (
+                <Chip key={p} label={PRICE_LABEL[p]} active={price === p} onClick={() => toggle(price, p, setPrice)} />
+              ))}
+            </div>
+            <div className="chip-row" role="group" aria-label="按学员性别筛选">
+              <span className="chip-row__label">性别</span>
+              <Chip label="男" active={gender === 'male'} onClick={() => toggle(gender, 'male', setGender)} />
+              <Chip label="女" active={gender === 'female'} onClick={() => toggle(gender, 'female', setGender)} />
+            </div>
+            <div className="chip-row" role="group" aria-label="排序">
+              <span className="chip-row__label">排序</span>
+              {(Object.keys(SORT_LABEL) as GigSort[]).map((s) => (
+                <Chip key={s} label={SORT_LABEL[s]} active={sort === s} onClick={() => { setSort(s); setPage(1); }} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {isPending ? (
