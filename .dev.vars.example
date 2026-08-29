@@ -1,0 +1,6 @@
+# 本地 wrangler pages dev 用（从 .dev.vars.example 复制为 .dev.vars 后填写；.dev.vars 已被 .gitignore 忽略）
+# 新建独立 Supabase 项目的 URL 与 service_role key（Dashboard → Settings → API）
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+# gigs 列表边缘缓存秒数（默认 60）
+GIGS_CACHE_TTL=60

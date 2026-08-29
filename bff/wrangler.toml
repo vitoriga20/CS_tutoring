@@ -1,0 +1,7 @@
+name = "cs-tutoring-bff"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+# 独立 Worker 开发环境（生产默认是 Pages 同域模式，见根 wrangler.toml）
+# 密钥放 bff/.dev.vars（从 .dev.vars.example 复制），不进仓库

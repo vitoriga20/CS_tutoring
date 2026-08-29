@@ -1,0 +1,20 @@
+{
+  "name": "cs-tutoring-bff",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CS_tutoring BFF on Cloudflare Pages Functions (Hono)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "typescript": "^5.6.3",
+    "vitest": "^3.0.5",
+    "wrangler": "^3.99.0"
+  }
+}
