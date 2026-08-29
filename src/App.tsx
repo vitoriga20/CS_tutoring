@@ -10,6 +10,7 @@ import AdminPage from './pages/admin/AdminPage';
 import AdminGigNewPage from './pages/admin/AdminGigNewPage';
 import AdminGigEditPage from './pages/admin/AdminGigEditPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
+import AdminAccountPage from './pages/admin/AdminAccountPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AppBackground from './components/AppBackground';
 import TabBar from './components/TabBar';
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="gigs/new" element={<AdminGigNewPage />} />
               <Route path="gigs/:id/edit" element={<AdminGigEditPage />} />
               <Route path="settings" element={<AdminSettingsPage />} />
+              <Route path="account" element={<AdminAccountPage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

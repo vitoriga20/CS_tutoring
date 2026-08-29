@@ -250,6 +250,32 @@ describe('GET /api/v1/gigs/:id（公开详情）', () => {
     expect(body.data.id).toBe(gig.id);
   });
 
+  it('CT-GIG-003：详情含 publisher_contact（发布者 wxid/qr），列表响应不含该字段', async () => {
+    const gig = h.seedGig();
+    const admin = h.store.profiles.find((r) => r.id === h.ADMIN_ID)!;
+    admin.wxid = 'pub-wx-001';
+    admin.qr_image_url = 'https://x.example/pub-qr.png';
+
+    const detail = await app.request(`/api/v1/gigs/${gig.id}`, authInit(null), ENV, EXEC_CTX);
+    expect(detail.status).toBe(200);
+    const dBody = await jsonBody(detail);
+    expect(dBody.data.publisher_contact).toEqual({
+      wxid: 'pub-wx-001',
+      qr_image_url: 'https://x.example/pub-qr.png',
+    });
+
+    // 发布者未设置资料 → 两字段为 null（回退由前端按 P-GIG-04 处理）
+    admin.wxid = null;
+    admin.qr_image_url = null;
+    const bare = await app.request(`/api/v1/gigs/${gig.id}`, authInit(null), ENV, EXEC_CTX);
+    expect((await jsonBody(bare)).data.publisher_contact).toEqual({ wxid: null, qr_image_url: null });
+
+    // 列表响应不含 publisher_contact
+    const list = await app.request('/api/v1/gigs?status=all', authInit(null), ENV, EXEC_CTX);
+    const lBody = await jsonBody(list);
+    expect(lBody.data[0].publisher_contact).toBeUndefined();
+  });
+
   it('TC-VIEW-006：不存在的单子 → 404 GIG_NOT_FOUND', async () => {
     const res = await app.request(
       '/api/v1/gigs/00000000-0000-0000-0000-000000000000',

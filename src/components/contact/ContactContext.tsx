@@ -1,21 +1,21 @@
-// 联系弹层全局状态（T-M3-1/T-M3-4）：TabBar「联系」打开全局弹层（无单子上下文），
-// 详情页「联系管理员接单」携带当前单子（contact_wxid 回退规则见 services/contact.ts）。
-// gig 状态语义：undefined=关闭；null=已打开（全局）；Gig=已打开（单子详情）。
+// 联系弹层全局状态（T-M3-1/T-M3-4）：详情页「联系管理员接单」携带当前单子
+// （三级回退规则见 services/contact.ts）。gig 状态语义：undefined=关闭；null=已打开（全局）；
+// GigDetail=已打开（单子详情，含发布者联系资料）。
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { Gig } from '../../services/types';
+import type { GigDetail } from '../../services/types';
 import ContactModal from './ContactModal';
 
 interface ContactContextValue {
-  openContact: (gig?: Gig) => void;
+  openContact: (gig?: GigDetail) => void;
 }
 
 const ContactContext = createContext<ContactContextValue | null>(null);
 
 export function ContactProvider({ children }: { children: ReactNode }) {
-  const [gig, setGig] = useState<Gig | null | undefined>(undefined);
+  const [gig, setGig] = useState<GigDetail | null | undefined>(undefined);
 
-  const openContact = useCallback((g?: Gig) => setGig(g ?? null), []);
+  const openContact = useCallback((g?: GigDetail) => setGig(g ?? null), []);
   const close = useCallback(() => setGig(undefined), []);
 
   const value = useMemo(() => ({ openContact }), [openContact]);

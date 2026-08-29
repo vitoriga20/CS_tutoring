@@ -29,6 +29,11 @@ export interface SiteConfigUpdate {
   notice?: string | null;
 }
 
+export interface ProfileUpdate {
+  wxid?: string | null;
+  qr_image_url?: string | null;
+}
+
 // 状态机（spec §5.1）：Allowed 表是唯一迁移 oracle；同值重申放行
 const ALLOWED_TRANSITIONS: ReadonlySet<string> = new Set([
   'open>matched',
@@ -233,6 +238,39 @@ export function validateSiteConfigPatch(body: unknown): ValidationResult<SiteCon
       issues.push({ field: 'notice', reason: '须为 ≤200 字符的字符串或 null' });
     } else {
       value.notice = body.notice;
+    }
+  }
+  if (issues.length > 0) return { ok: false, details: issues };
+  return { ok: true, value };
+}
+
+// PATCH /me（spec §5.3 profile.* 规则）：wxid 显式 null 合法（清空）；qr_image_url 只经上传回写产生，但契约仍允许显式 null
+export function validateProfilePatch(body: unknown): ValidationResult<ProfileUpdate> {
+  if (!isRecord(body)) {
+    return { ok: false, details: [{ field: 'body', reason: '须为 JSON 对象' }] };
+  }
+  const issues: FieldIssue[] = [];
+  const value: ProfileUpdate = {};
+
+  if ('wxid' in body) {
+    if (body.wxid === null) {
+      value.wxid = null;
+    } else {
+      const s = asTrimmed(body.wxid);
+      if (s === null || s.length < 1 || s.length > 40) {
+        issues.push({ field: 'wxid', reason: '须为 1..40 字符的字符串或 null' });
+      } else {
+        value.wxid = s;
+      }
+    }
+  }
+  if ('qr_image_url' in body) {
+    if (body.qr_image_url === null) {
+      value.qr_image_url = null;
+    } else if (typeof body.qr_image_url !== 'string' || body.qr_image_url.length < 1 || body.qr_image_url.length > 500 || !body.qr_image_url.startsWith('https://')) {
+      issues.push({ field: 'qr_image_url', reason: '须为 https:// 开头且 ≤500 字符的字符串或 null' });
+    } else {
+      value.qr_image_url = body.qr_image_url;
     }
   }
   if (issues.length > 0) return { ok: false, details: issues };

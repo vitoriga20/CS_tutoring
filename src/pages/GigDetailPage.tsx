@@ -8,7 +8,7 @@ import { apiGet, ApiError } from '../services/api';
 import { GRADE_LABEL, MODE_LABEL, STATUS_LABEL, genderLabel } from '../services/labels';
 import { useContact } from '../components/contact/ContactContext';
 import StatusBadge from '../components/StatusBadge';
-import type { Gig } from '../services/types';
+import type { GigDetail } from '../services/types';
 
 function DetailSkeleton() {
   return (
@@ -31,7 +31,7 @@ export default function GigDetailPage() {
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['gig', id],
-    queryFn: () => apiGet<{ data: Gig }>(`/gigs/${id}`),
+    queryFn: () => apiGet<{ data: GigDetail }>(`/gigs/${id}`),
     enabled: Boolean(id),
     retry: 1,
   });

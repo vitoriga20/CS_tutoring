@@ -9,6 +9,7 @@ import { requestLog } from './middleware/requestLog';
 import { health } from './routes/health';
 import { gigs } from './routes/gigs';
 import { siteConfig } from './routes/site_config';
+import { me } from './routes/me';
 
 // from: CourseCore bff/src/app.ts（移植）
 // 共享 Hono app：同时供两种部署形态复用
@@ -48,6 +49,7 @@ app.use('/api/v1/*', async (c, next) => {
 app.route('/api/v1', health);
 app.route('/api/v1/gigs', gigs);
 app.route('/api/v1/site-config', siteConfig);
+app.route('/api/v1/me', me);
 
 // 兜底 404
 app.notFound((c) => c.json({ error: 'Not Found', code: 'NOT_FOUND' }, 404));

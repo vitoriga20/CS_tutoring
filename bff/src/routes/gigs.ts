@@ -56,13 +56,14 @@ gigs.get('/', async (c) => {
   return c.json({ data: items, meta: { page, pageSize, total } });
 });
 
-// GET /api/v1/gigs/:id — 公开详情，任意状态可读
+// GET /api/v1/gigs/:id — 公开详情，任意状态可读；data 为 GigDetail（含发布者联系资料，spec v0.3.0 §3）
 gigs.get('/:id', async (c) => {
   const id = c.req.param('id');
   if (!UUID_RE.test(id)) return notFound(c);
   const gig = await db.getGig(c.env, id);
   if (!gig) return notFound(c);
-  return c.json({ data: gig });
+  const publisher_contact = await db.getPublisherContact(c.env, gig.published_by);
+  return c.json({ data: { ...gig, publisher_contact } });
 });
 
 // POST /api/v1/gigs — 发布（admin）

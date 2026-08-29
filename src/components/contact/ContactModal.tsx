@@ -1,4 +1,4 @@
-// 联系管理员弹层（T-M3-4，契约：spec.md Gherkin「详情页联系弹层」+ P-GIG-04）
+// 联系管理员弹层（T-M3-4，契约：spec.md Gherkin「详情页联系弹层」+ P-GIG-04 v0.3 三级回退）
 // 弹壳样式为移植的 grad .modal（浅色面板 + 黄顶横 + 硬投影）；二维码为普通 <img>，
 // 保证微信内置浏览器长按可识别（checklist §4）。
 import { useEffect, useRef, useState } from 'react';
@@ -6,11 +6,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Check, Copy } from 'lucide-react';
 import { apiGet } from '../../services/api';
 import { resolveContactTarget } from '../../services/contact';
-import type { Gig, SiteConfig } from '../../services/types';
+import type { GigDetail, SiteConfig } from '../../services/types';
 
 interface ContactModalProps {
-  /** null = 全局联系（TabBar「联系」），无单子专属微信 */
-  gig: Gig | null;
+  /** null = 全局联系（无单子上下文，走站点配置） */
+  gig: GigDetail | null;
   onClose: () => void;
 }
 
@@ -62,7 +62,9 @@ export default function ContactModal({ gig, onClose }: ContactModalProps) {
   }, [onClose]);
 
   const siteConfig = data?.data;
-  const target = siteConfig ? resolveContactTarget(gig, siteConfig) : null;
+  const target = siteConfig
+    ? resolveContactTarget(gig, gig?.publisher_contact ?? null, siteConfig)
+    : null;
 
   async function handleCopy() {
     if (!target) return;

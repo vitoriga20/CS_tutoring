@@ -1,5 +1,5 @@
 /** @vitest-environment happy-dom */
-// TC-VIEW-003/004/005 组件级验收（Gherkin：spec.md §2.1；依赖：@testing-library/react + happy-dom，
+// TC-VIEW-003/004/005/007 组件级验收（Gherkin：spec.md §2.1；依赖：@testing-library/react + happy-dom，
 // 2026-08-29 经用户确认新增）。用例 ID 与 specs/spec.md 第 7 部分覆盖矩阵逐字一致。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -10,7 +10,7 @@ import HomePage from '../src/pages/HomePage';
 import GigDetailPage from '../src/pages/GigDetailPage';
 import ContactModal from '../src/components/contact/ContactModal';
 import { ContactProvider } from '../src/components/contact/ContactContext';
-import type { Gig, Page, SiteConfig } from '../src/services/types';
+import type { GigDetail, Page, PublisherContact, SiteConfig } from '../src/services/types';
 
 vi.mock('../src/services/api', () => {
   class ApiError extends Error {
@@ -28,12 +28,12 @@ import { apiGet } from '../src/services/api';
 
 const apiGetMock = vi.mocked(apiGet);
 
-const EMPTY_PAGE: Page<Gig> = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
+const EMPTY_PAGE: Page<GigDetail> = { data: [], meta: { page: 1, pageSize: 20, total: 0 } };
 const SITE_OK = {
   data: { wxid: 'admin-wx-001', qr_image_url: 'https://example.com/qr.png', notice: null } satisfies SiteConfig,
 };
 
-function makeGig(overrides: Partial<Gig> = {}): Gig {
+function makeGig(overrides: Partial<GigDetail> = {}): GigDetail {
   return {
     id: '00000000-0000-0000-0000-00000000g001',
     title: '高二数学一对一',
@@ -51,8 +51,13 @@ function makeGig(overrides: Partial<Gig> = {}): Gig {
     published_by: '00000000-0000-0000-0000-00000000a001',
     created_at: '2026-08-29T08:00:00Z',
     updated_at: '2026-08-29T08:00:00Z',
+    publisher_contact: { wxid: null, qr_image_url: null },
     ...overrides,
   };
+}
+
+function pub(wxid: string | null, qr: string | null): PublisherContact {
+  return { wxid, qr_image_url: qr };
 }
 
 function withProviders(ui: ReactElement, opts: { route?: string; routePath?: string } = {}) {
@@ -107,6 +112,48 @@ describe('TC-VIEW-004 详情页联系弹层', () => {
     withProviders(<ContactModal gig={makeGig({ contact_wxid: 'gig-wx-777' })} onClose={() => {}} />);
     await waitFor(() => expect(screen.getByText('gig-wx-777')).toBeTruthy());
     expect(screen.queryByText('admin-wx-001')).toBeNull();
+  });
+});
+
+describe('TC-VIEW-007 弹层三级回退（v0.3 发布者资料）', () => {
+  it('contact_wxid 为空且发布者有资料：展示发布者 wxid 与发布者二维码', async () => {
+    apiGetMock.mockResolvedValue(SITE_OK);
+    withProviders(
+      <ContactModal
+        gig={makeGig({ publisher_contact: pub('pub-wx-001', 'https://example.com/pub-qr.png') })}
+        onClose={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('pub-wx-001')).toBeTruthy());
+    expect(screen.getByAltText('小助理微信二维码').getAttribute('src')).toBe('https://example.com/pub-qr.png');
+    expect(screen.queryByText('admin-wx-001')).toBeNull();
+  });
+
+  it('contact_wxid 非空：wxid 用专属微信，二维码仍优先发布者的（qr 独立回退）', async () => {
+    apiGetMock.mockResolvedValue(SITE_OK);
+    withProviders(
+      <ContactModal
+        gig={makeGig({
+          contact_wxid: 'gig-wx-777',
+          publisher_contact: pub('pub-wx-001', 'https://example.com/pub-qr.png'),
+        })}
+        onClose={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('gig-wx-777')).toBeTruthy());
+    expect(screen.getByAltText('小助理微信二维码').getAttribute('src')).toBe('https://example.com/pub-qr.png');
+  });
+
+  it('发布者仅上传二维码（无 wxid）且 contact_wxid 为空：wxid 兜底站点，qr 用发布者的', async () => {
+    apiGetMock.mockResolvedValue(SITE_OK);
+    withProviders(
+      <ContactModal
+        gig={makeGig({ publisher_contact: pub(null, 'https://example.com/pub-qr.png') })}
+        onClose={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('admin-wx-001')).toBeTruthy());
+    expect(screen.getByAltText('小助理微信二维码').getAttribute('src')).toBe('https://example.com/pub-qr.png');
   });
 });
 

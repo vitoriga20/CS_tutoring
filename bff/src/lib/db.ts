@@ -2,7 +2,7 @@
 import { assertSupabaseEnv, type Bindings } from '../env';
 import { SupabaseRest } from './supabase';
 import type { GigCreate } from './validators';
-import type { Gig, GigStatusFilter, SiteConfig } from '../types';
+import type { Gig, GigStatusFilter, Profile, PublisherContact, SiteConfig } from '../types';
 
 export interface GigListFilters {
   status: GigStatusFilter;
@@ -90,4 +90,37 @@ export async function getProfileRole(env: Bindings, userId: string): Promise<str
     limit: 1,
   });
   return data?.[0]?.role ?? null;
+}
+
+// GET /me：当前账号完整 profiles 行（联系资料 + 角色）
+export async function getProfile(env: Bindings, userId: string): Promise<Profile | null> {
+  const { data } = await client(env).query<Profile[]>('profiles', {
+    select: 'id,role,display_name,avatar_url,wxid,qr_image_url,created_at,updated_at',
+    filters: { id: ['eq', userId] },
+    limit: 1,
+  });
+  return data?.[0] ?? null;
+}
+
+// PATCH /me：只写联系资料两列（service_role 绕过 RLS；RLS 写入仍无策略）
+export async function updateProfile(
+  env: Bindings,
+  userId: string,
+  patch: Record<string, unknown>,
+): Promise<Profile[]> {
+  return client(env).update<Profile>('profiles', { id: ['eq', userId] }, patch);
+}
+
+// 联系弹层「发布者资料」回退层：gigs.published_by 与 profiles 间无直接 FK（都指向 auth.users），
+// PostgREST 不能资源嵌入，这里两次查询（服务端内部，公开详情页允许暴露 wxid/qr 两列）
+export async function getPublisherContact(
+  env: Bindings,
+  publisherId: string,
+): Promise<PublisherContact> {
+  const { data } = await client(env).query<PublisherContact[]>('profiles', {
+    select: 'wxid,qr_image_url',
+    filters: { id: ['eq', publisherId] },
+    limit: 1,
+  });
+  return { wxid: data?.[0]?.wxid ?? null, qr_image_url: data?.[0]?.qr_image_url ?? null };
 }

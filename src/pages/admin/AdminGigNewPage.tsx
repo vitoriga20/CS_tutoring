@@ -1,13 +1,20 @@
 // 发布单子（T-M4-3，契约：spec.md §2.2「发布成功」POST /gigs → 201 status=open）
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+// 「单子专属微信」默认填当前账号的 wxid（spec v0.3.0：用户中心资料 → 表单默认值），可改可清空。
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
-import { apiPost } from '../../services/api';
+import { apiGet, apiPost } from '../../services/api';
 import GigForm, { type GigFormPayload } from '../../components/admin/GigForm';
+import type { Profile } from '../../services/types';
 
 export default function AdminGigNewPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { data: meData } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => apiGet<{ data: Profile }>('/me'),
+    retry: 1,
+  });
 
   const create = useMutation({
     mutationFn: (payload: GigFormPayload) => apiPost<{ data: { id: string } }>('/gigs', payload),
@@ -28,6 +35,7 @@ export default function AdminGigNewPage() {
       </header>
       <GigForm
         submitLabel="发布"
+        defaultContactWxid={meData?.data.wxid ?? undefined}
         onCancel={() => navigate('/admin')}
         onSubmit={(payload) => create.mutateAsync(payload)}
       />

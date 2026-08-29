@@ -77,6 +77,9 @@ export default function AdminPage() {
         <Link to="/admin/settings" className="btn">
           联系方式设置
         </Link>
+        <Link to="/admin/account" className="btn">
+          用户中心
+        </Link>
       </div>
 
       <div className="gh-tabs" role="tablist" aria-label="按状态筛选" style={{ marginBottom: 14 }}>

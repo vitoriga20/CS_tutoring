@@ -2256,6 +2256,22 @@ function rateLimit(opts) {
   };
 }
 
+// bff/src/middleware/requestLog.ts
+var envWarned = false;
+function requestLog() {
+  return async (c, next) => {
+    if (!envWarned && (!c.env?.SUPABASE_URL || !c.env?.SUPABASE_SERVICE_ROLE_KEY)) {
+      envWarned = true;
+      console.error(
+        "[bff] \u914D\u7F6E\u7F3A\u5931\uFF1ASUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY \u672A\u8BBE\u7F6E\uFF08\u672C\u5730\u8BF7\u521B\u5EFA bff/.dev.vars \u5E76\u91CD\u542F wrangler dev\uFF1B\u7EBF\u4E0A\u6CE8\u5165 Cloudflare Secrets\uFF09"
+      );
+    }
+    const start = Date.now();
+    await next();
+    console.log(`[bff] ${c.req.method} ${c.req.path} ${c.res.status} ${Date.now() - start}ms`);
+  };
+}
+
 // bff/src/routes/health.ts
 var health = new Hono2();
 health.get("/healthz", (c) => {
@@ -2461,6 +2477,45 @@ function validateSiteConfigPatch(body) {
   if (issues.length > 0) return { ok: false, details: issues };
   return { ok: true, value };
 }
+function validateProfilePatch(body) {
+  if (!isRecord(body)) {
+    return { ok: false, details: [{ field: "body", reason: "\u987B\u4E3A JSON \u5BF9\u8C61" }] };
+  }
+  const issues = [];
+  const value = {};
+  if ("wxid" in body) {
+    if (body.wxid === null) {
+      value.wxid = null;
+    } else {
+      const s = asTrimmed(body.wxid);
+      if (s === null || s.length < 1 || s.length > 40) {
+        issues.push({ field: "wxid", reason: "\u987B\u4E3A 1..40 \u5B57\u7B26\u7684\u5B57\u7B26\u4E32\u6216 null" });
+      } else {
+        value.wxid = s;
+      }
+    }
+  }
+  if ("qr_image_url" in body) {
+    if (body.qr_image_url === null) {
+      value.qr_image_url = null;
+    } else if (typeof body.qr_image_url !== "string" || body.qr_image_url.length < 1 || body.qr_image_url.length > 500 || !body.qr_image_url.startsWith("https://")) {
+      issues.push({ field: "qr_image_url", reason: "\u987B\u4E3A https:// \u5F00\u5934\u4E14 \u2264500 \u5B57\u7B26\u7684\u5B57\u7B26\u4E32\u6216 null" });
+    } else {
+      value.qr_image_url = body.qr_image_url;
+    }
+  }
+  if (issues.length > 0) return { ok: false, details: issues };
+  return { ok: true, value };
+}
+
+// bff/src/env.ts
+function assertSupabaseEnv(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error(
+      "[bff] \u914D\u7F6E\u7F3A\u5931\uFF1ASUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY \u672A\u8BBE\u7F6E\uFF08\u672C\u5730\uFF1A\u53C2\u7167 bff/.dev.vars.example \u521B\u5EFA bff/.dev.vars \u5E76\u91CD\u542F wrangler dev\uFF1B\u7EBF\u4E0A\uFF1A\u6CE8\u5165 Cloudflare Secrets\uFF09"
+    );
+  }
+}
 
 // bff/src/lib/supabase.ts
 function parseTotal(contentRange) {
@@ -2561,6 +2616,7 @@ var SupabaseRest = class {
 
 // bff/src/lib/db.ts
 function client(env) {
+  assertSupabaseEnv(env);
   return new SupabaseRest(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 }
 async function listGigs(env, f) {
@@ -2615,9 +2671,29 @@ async function getProfileRole(env, userId) {
   });
   return data?.[0]?.role ?? null;
 }
+async function getProfile(env, userId) {
+  const { data } = await client(env).query("profiles", {
+    select: "id,role,display_name,avatar_url,wxid,qr_image_url,created_at,updated_at",
+    filters: { id: ["eq", userId] },
+    limit: 1
+  });
+  return data?.[0] ?? null;
+}
+async function updateProfile(env, userId, patch) {
+  return client(env).update("profiles", { id: ["eq", userId] }, patch);
+}
+async function getPublisherContact(env, publisherId) {
+  const { data } = await client(env).query("profiles", {
+    select: "wxid,qr_image_url",
+    filters: { id: ["eq", publisherId] },
+    limit: 1
+  });
+  return { wxid: data?.[0]?.wxid ?? null, qr_image_url: data?.[0]?.qr_image_url ?? null };
+}
 
 // bff/src/middleware/auth.ts
 async function authenticateToken(env, token) {
+  assertSupabaseEnv(env);
   const sbUrl = env.SUPABASE_URL.replace(/\/$/, "");
   const res = await fetch(`${sbUrl}/auth/v1/user`, {
     headers: {
@@ -2695,7 +2771,8 @@ gigs.get("/:id", async (c) => {
   if (!UUID_RE.test(id)) return notFound(c);
   const gig = await getGig(c.env, id);
   if (!gig) return notFound(c);
-  return c.json({ data: gig });
+  const publisher_contact = await getPublisherContact(c.env, gig.published_by);
+  return c.json({ data: { ...gig, publisher_contact } });
 });
 gigs.post("/", requireAdmin(), async (c) => {
   const body = await c.req.json().catch(() => null);
@@ -2758,6 +2835,29 @@ siteConfig.patch("/", requireAdmin(), async (c) => {
   return c.json({ data: rows[0] });
 });
 
+// bff/src/routes/me.ts
+var me = new Hono2();
+me.get("/", requireAdmin(), async (c) => {
+  const row = await getProfile(c.env, c.get("user").id);
+  if (!row) {
+    return c.json({ error: "Internal Server Error", code: "INTERNAL" }, 500);
+  }
+  return c.json({ data: row });
+});
+me.patch("/", requireAdmin(), async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const result = validateProfilePatch(body);
+  if (!result.ok) {
+    return c.json({ error: "\u8BF7\u6C42\u53C2\u6570\u4E0D\u6EE1\u8DB3\u7EA6\u675F", code: "VALIDATION_ERROR", details: result.details }, 422);
+  }
+  if (Object.keys(result.value).length === 0) {
+    const row = await getProfile(c.env, c.get("user").id);
+    return c.json({ data: row });
+  }
+  const rows = await updateProfile(c.env, c.get("user").id, result.value);
+  return c.json({ data: rows[0] });
+});
+
 // bff/src/app.ts
 var app = new Hono2();
 app.use("*", securityHeaders());
@@ -2772,6 +2872,7 @@ app.use(
   })
 );
 app.use("/api/v1/*", rateLimit({ limit: 120, windowSec: 60 }));
+app.use("/api/v1/*", requestLog());
 app.use("/api/v1/*", async (c, next) => {
   const ttl = parseInt(c.env.GIGS_CACHE_TTL || "60", 10) || 60;
   return cacheMiddleware({ ttl })(c, next);
@@ -2779,6 +2880,7 @@ app.use("/api/v1/*", async (c, next) => {
 app.route("/api/v1", health);
 app.route("/api/v1/gigs", gigs);
 app.route("/api/v1/site-config", siteConfig);
+app.route("/api/v1/me", me);
 app.notFound((c) => c.json({ error: "Not Found", code: "NOT_FOUND" }, 404));
 app.onError((err, c) => {
   if (err instanceof HTTPException) return err.getResponse();

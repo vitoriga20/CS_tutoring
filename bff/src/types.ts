@@ -34,4 +34,28 @@ export interface SiteConfig {
   notice: string | null;
 }
 
+// 账号级联系资料（profiles 行，v0.3.0）；GET/PATCH /me 与 GigDetail.publisher_contact 用
+export type ProfileRole = 'admin' | 'free';
+
+export interface Profile {
+  id: string;
+  role: ProfileRole;
+  display_name: string | null;
+  avatar_url: string | null;
+  wxid: string | null;
+  qr_image_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// 发布者联系资料投影（不暴露 role 等非联系字段）
+export interface PublisherContact {
+  wxid: string | null;
+  qr_image_url: string | null;
+}
+
+export interface GigDetail extends Gig {
+  publisher_contact: PublisherContact;
+}
+
 export type GigStatusFilter = GigStatus | 'all';

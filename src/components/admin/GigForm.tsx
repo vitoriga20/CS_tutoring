@@ -126,13 +126,17 @@ interface GigFormProps {
   /** 编辑时传入现有单子填充表单 */
   initial?: Gig;
   submitLabel: string;
+  /** 新建时「单子专属微信」默认值（当前账号 profiles.wxid，用户中心维护；可改可清空） */
+  defaultContactWxid?: string;
   /** resolve 即视为成功（返回值仅用于 await 时序，表单不消费） */
   onSubmit: (payload: GigFormPayload) => Promise<unknown>;
   onCancel: () => void;
 }
 
-export default function GigForm({ initial, submitLabel, onSubmit, onCancel }: GigFormProps) {
-  const [values, setValues] = useState<GigFormValues>(() => (initial ? gigFormValuesFrom(initial) : EMPTY_VALUES));
+export default function GigForm({ initial, submitLabel, defaultContactWxid, onSubmit, onCancel }: GigFormProps) {
+  const [values, setValues] = useState<GigFormValues>(() =>
+    initial ? gigFormValuesFrom(initial) : { ...EMPTY_VALUES, contact_wxid: defaultContactWxid ?? '' },
+  );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
