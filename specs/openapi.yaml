@@ -1,0 +1,387 @@
+openapi: 3.1.0
+info:
+  title: CS_tutoring BFF API
+  version: v0.2.0
+  description: 家教单发布与接单平台 BFF。唯一事实来源，与 specs/spec.md 第 3/6 部分同源。错误响应统一 {error, code, detail?}。
+servers:
+  - url: https://cstutoring.pages.dev
+    description: 生产（Cloudflare Pages 同域）
+  - url: http://127.0.0.1:8788
+    description: 本地 wrangler pages dev
+tags:
+  - name: system
+  - name: gigs
+  - name: site-config
+
+paths:
+  /api/v1/healthz:
+    get:
+      tags: [system]
+      summary: 健康检查
+      operationId: getHealthz
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, ts]
+                properties:
+                  status: { type: string, enum: [ok] }
+                  ts: { type: string, format: date-time }
+              example:
+                status: ok
+                ts: '2026-08-29T08:00:00.000Z'
+
+  /api/v1/gigs:
+    get:
+      tags: [gigs]
+      summary: 家教单列表（公开）
+      operationId: listGigs
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, matched, closed, all], default: open }
+          description: 缺省为 open；非法取值返回 422
+        - name: grade_level
+          in: query
+          schema: { $ref: '#/components/schemas/GradeLevel' }
+          description: 缺省不过滤
+        - name: mode
+          in: query
+          schema: { $ref: '#/components/schemas/LessonMode' }
+          description: 缺省不过滤
+        - name: subject
+          in: query
+          schema: { type: string, maxLength: 40 }
+          description: trim 后不区分大小写的精确匹配
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: 列表；排序 created_at desc, id desc
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Gig' }
+                  meta:
+                    type: object
+                    required: [page, pageSize, total]
+                    properties:
+                      page: { type: integer }
+                      pageSize: { type: integer }
+                      total: { type: integer }
+              example:
+                data:
+                  - id: 550e8400-e29b-41d4-a716-446655440000
+                    title: 高二数学一对一
+                    subject: 数学
+                    grade_level: senior
+                    mode: online
+                    region: 杭州市
+                    student_gender: female
+                    student_info: 女生，数学 85/150，基础较弱，计算易粗心
+                    rate: 150/小时
+                    schedule: 周六全天
+                    requirements: 每周两次线上辅导，需要有耐心、能讲透基础题的学生
+                    contact_wxid: null
+                    status: open
+                    published_by: 6f9619ff-8b86-d011-b42d-00c04fc964ff
+                    created_at: '2026-08-29T08:00:00.000Z'
+                    updated_at: '2026-08-29T08:00:00.000Z'
+                meta: { page: 1, pageSize: 20, total: 1 }
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    post:
+      tags: [gigs]
+      summary: 发布家教单（admin）
+      operationId: createGig
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GigCreate' }
+            example:
+              title: 高二数学一对一
+              subject: 数学
+              grade_level: senior
+              mode: online
+              region: 杭州市
+              student_gender: female
+              student_info: 女生，数学 85/150，基础较弱，计算易粗心
+              rate: 150/小时
+              schedule: 周六全天
+              requirements: 每周两次线上辅导，需要有耐心、能讲透基础题的学生
+      responses:
+        '201':
+          description: 已创建，status 为 open
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Gig' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/gigs/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [gigs]
+      summary: 家教单详情（公开，任意状态可读）
+      operationId: getGig
+      responses:
+        '200':
+          description: 详情
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Gig' }
+        '404': { $ref: '#/components/responses/GigNotFound' }
+    patch:
+      tags: [gigs]
+      summary: 修改家教单（admin；含状态流转）
+      operationId: updateGig
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GigUpdate' }
+            example: { status: matched }
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Gig' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/GigNotFound' }
+        '422':
+          description: 字段校验失败（VALIDATION_ERROR）或非法状态迁移（GIG_INVALID_TRANSITION）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              examples:
+                validation:
+                  value: { error: '请求参数不满足约束', code: VALIDATION_ERROR }
+                invalidTransition:
+                  value: { error: '非法的状态迁移', code: GIG_INVALID_TRANSITION }
+    delete:
+      tags: [gigs]
+      summary: 删除家教单（admin）
+      operationId: deleteGig
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204':
+          description: 已删除，无响应体
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/GigNotFound' }
+
+  /api/v1/site-config:
+    get:
+      tags: [site-config]
+      summary: 站点联系配置（公开）
+      operationId: getSiteConfig
+      responses:
+        '200':
+          description: 配置
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/SiteConfig' }
+              example:
+                data:
+                  wxid: admin-wx-001
+                  qr_image_url: 'https://<project>.supabase.co/storage/v1/object/public/site-assets/qr.png'
+                  notice: 报名请注明来意与想接的单子编号
+    patch:
+      tags: [site-config]
+      summary: 修改站点联系配置（admin）
+      operationId: updateSiteConfig
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SiteConfigUpdate' }
+            example: { notice: 报名请注明来意与想接的单子编号 }
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/SiteConfig' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth JWT；BFF 服务端校验并查 profiles.role 判定 admin。
+  schemas:
+    GigStatus:
+      type: string
+      enum: [open, matched, closed]
+    LessonMode:
+      type: string
+      enum: [online, offline]
+    GradeLevel:
+      type: string
+      enum: [primary, junior, senior, college]
+    StudentGender:
+      type: string
+      enum: [male, female, unknown]
+    Gig:
+      type: object
+      required: [id, title, subject, grade_level, mode, region, student_gender, student_info, requirements, status, published_by, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, maxLength: 60 }
+        subject: { type: string, maxLength: 40 }
+        grade_level: { $ref: '#/components/schemas/GradeLevel' }
+        mode: { $ref: '#/components/schemas/LessonMode' }
+        region: { type: string, maxLength: 40 }
+        student_gender: { $ref: '#/components/schemas/StudentGender' }
+        student_info: { type: string, maxLength: 500 }
+        rate: { type: [string, 'null'], maxLength: 40 }
+        schedule: { type: [string, 'null'], maxLength: 120 }
+        requirements: { type: string, maxLength: 2000 }
+        contact_wxid: { type: [string, 'null'], maxLength: 40 }
+        status: { $ref: '#/components/schemas/GigStatus' }
+        published_by: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    GigCreate:
+      type: object
+      required: [title, subject, grade_level, mode, region, student_info]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 60 }
+        subject: { type: string, minLength: 1, maxLength: 40 }
+        grade_level: { $ref: '#/components/schemas/GradeLevel' }
+        mode: { $ref: '#/components/schemas/LessonMode' }
+        region: { type: string, minLength: 1, maxLength: 40 }
+        student_gender: { $ref: '#/components/schemas/StudentGender' }
+        student_info: { type: string, minLength: 1, maxLength: 500 }
+        rate: { type: [string, 'null'], maxLength: 40 }
+        schedule: { type: [string, 'null'], maxLength: 120 }
+        requirements: { type: string, minLength: 1, maxLength: 2000 }
+        contact_wxid: { type: [string, 'null'], maxLength: 40 }
+      description: region 与 student_info 必填；student_gender 缺省 unknown（specs/spec.md §5.2）；未知字段忽略。
+    GigUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 1, maxLength: 60 }
+        subject: { type: string, minLength: 1, maxLength: 40 }
+        grade_level: { $ref: '#/components/schemas/GradeLevel' }
+        mode: { $ref: '#/components/schemas/LessonMode' }
+        region: { type: string, minLength: 1, maxLength: 40 }
+        student_gender: { $ref: '#/components/schemas/StudentGender' }
+        student_info: { type: string, minLength: 1, maxLength: 500 }
+        rate: { type: [string, 'null'], maxLength: 40 }
+        schedule: { type: [string, 'null'], maxLength: 120 }
+        requirements: { type: string, minLength: 1, maxLength: 2000 }
+        contact_wxid: { type: [string, 'null'], maxLength: 40 }
+        status: { $ref: '#/components/schemas/GigStatus' }
+      description: 对合并后的最终实体整体校验（region、student_info 合并后必须非空）；status 迁移受状态机约束。
+    SiteConfig:
+      type: object
+      required: [wxid, qr_image_url]
+      properties:
+        wxid: { type: string, minLength: 1, maxLength: 40 }
+        qr_image_url: { type: string, minLength: 1, maxLength: 500, pattern: '^https://' }
+        notice: { type: [string, 'null'], maxLength: 200 }
+    SiteConfigUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        wxid: { type: string, minLength: 1, maxLength: 40 }
+        qr_image_url: { type: string, minLength: 1, maxLength: 500, pattern: '^https://' }
+        notice: { type: [string, 'null'], maxLength: 200 }
+      description: notice 空字符串规范化为 null；未知字段忽略。
+    Error:
+      type: object
+      required: [error, code]
+      properties:
+        error: { type: string }
+        code: { type: string }
+        detail: { type: string }
+  responses:
+    Unauthorized:
+      description: 缺失或无效 JWT
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: 'Missing or invalid Authorization header', code: UNAUTHENTICATED }
+    Forbidden:
+      description: 已登录但非 admin
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Forbidden, code: FORBIDDEN }
+    GigNotFound:
+      description: 单子不存在
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: 'Gig not found', code: GIG_NOT_FOUND }
+    ValidationError:
+      description: 参数校验失败
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Error'
+              - type: object
+                properties:
+                  details:
+                    type: array
+                    items:
+                      type: object
+                      required: [field, reason]
+                      properties:
+                        field: { type: string }
+                        reason: { type: string }
+          example:
+            error: '请求参数不满足约束'
+            code: VALIDATION_ERROR
+            details:
+              - { field: region, reason: 'region 必填' }

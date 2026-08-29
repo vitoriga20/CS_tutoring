@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "gig.schema.json",
+  "title": "Gig（数据库实体，gigs 表整行）",
+  "description": "与 supabase/migrations/0001_init.sql 的 gigs 表一一对应（spec v0.2.0）；API 契约见 openapi.yaml 的 Gig。",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "subject": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "grade_level": { "enum": ["primary", "junior", "senior", "college"] },
+    "mode": { "enum": ["online", "offline"] },
+    "region": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "student_gender": { "enum": ["male", "female", "unknown"] },
+    "student_info": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "rate": { "type": ["string", "null"], "maxLength": 40 },
+    "schedule": { "type": ["string", "null"], "maxLength": 120 },
+    "requirements": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "contact_wxid": { "type": ["string", "null"], "maxLength": 40 },
+    "status": { "enum": ["open", "matched", "closed"] },
+    "published_by": { "type": "string", "format": "uuid" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": [
+    "id", "title", "subject", "grade_level", "mode", "region",
+    "student_gender", "student_info", "requirements",
+    "status", "published_by", "created_at", "updated_at"
+  ]
+}

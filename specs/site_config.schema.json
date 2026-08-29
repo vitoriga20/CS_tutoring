@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "site_config.schema.json",
+  "title": "SiteConfig（数据库实体，site_config 表整行，恒 1 行 id=1）",
+  "description": "API 响应只含 wxid/qr_image_url/notice 三字段（见 openapi.yaml SiteConfig）；id/updated_at 为数据库内部字段。",
+  "type": "object",
+  "properties": {
+    "id": { "type": "integer", "const": 1 },
+    "wxid": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "qr_image_url": { "type": "string", "minLength": 1, "maxLength": 500, "pattern": "^https://" },
+    "notice": { "type": ["string", "null"], "maxLength": 200 },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["id", "wxid", "qr_image_url", "updated_at"]
+}

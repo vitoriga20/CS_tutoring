@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "profile.schema.json",
+  "title": "Profile（数据库实体，profiles 表整行）",
+  "description": "auth.users 的 1:1 扩展；role 由 on_auth_user_created 触发器初始化为 free，管理员提权为手动 SQL。",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "role": { "enum": ["admin", "free"] },
+    "display_name": { "type": ["string", "null"], "maxLength": 40 },
+    "avatar_url": { "type": ["string", "null"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["id", "role", "created_at", "updated_at"]
+}
