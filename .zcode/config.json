@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "enabled": true,
+    "events": {
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "process",
+              "command": "powershell",
+              "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${ZCODE_PROJECT_DIR}/tools/path_align_hooks/turn_align_zcode.ps1"
+              ],
+              "timeoutMs": 20000,
+              "statusMessage": "path-align 轮末路径成对检查"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

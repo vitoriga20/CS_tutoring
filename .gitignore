@@ -1,0 +1,25 @@
+# 依赖与构建产物
+node_modules/
+dist/
+.vite/
+
+# 环境与密钥（SUPABASE_SERVICE_ROLE_KEY 等绝不入库；example 例外）
+.env
+.env.*
+.dev.vars
+!.env.example
+!.dev.vars.example
+
+# Cloudflare
+.wrangler/
+
+# path-align 钩子运行时产物（每次轮末重新生成）
+tools/path_align_hooks/last-*
+
+# 临时文件（红线：temp_* 用后即删，这里兜底防误提交）
+temp_*
+
+# 系统与日志
+.DS_Store
+Thumbs.db
+*.log
