@@ -1,7 +1,7 @@
 # SPEC-001: 家教单发布与接单（CS_tutoring 根级规范）
 
-> **规范状态:** 待批准（2026-08-29，v0.3.0 修订稿待用户确认；v0.2.0 及此前已批准）
-> **版本:** v0.3.0
+> **规范状态:** 待批准（2026-08-29，v0.3.x 修订稿待用户确认；v0.2.0 及此前已批准）
+> **版本:** v0.3.1
 > **负责人:** PO/TL/QA: 用户（单人项目）
 > **代码包路径:** `src/`（React 前端）、`bff/src/`（Hono BFF）、`functions/api/[[route]].js`（Pages Function 产物）、`supabase/migrations/`（数据库迁移）
 > **最后修改:** 见 Git 提交记录（仓库尚无提交）
@@ -555,4 +555,5 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | 2026-08-29 | v0.2.0 | gigs 表修订: region 改为无条件必填，新增 student_gender / student_info 字段，requirements 明确为「对老师的要求」，移除 region 条件 CHECK | （仓库尚无提交） |
 | 2026-08-29 | v0.2.1 | M2 实施回补: subject 筛选通配符（* 与 %）返回 422；覆盖矩阵按 BFF 测试落地更新自动化状态 | （仓库尚无提交） |
 | 2026-08-29 | v0.2.2 | M3 实施 UI 调整（用户 PO 指示）: 底部导航移除「联系」Tab（2 Tab：单子/管理），联系入口收敛到单子详情页底部按钮；按钮文案「联系管理员接单」→「联系小助理接单」（弹层内文案同步） | （仓库尚无提交） |
-| 2026-08-29 | v0.3.0 | 用户中心（M6，经用户两轮对齐确认方向）: profiles 新增 wxid/qr_image_url 账号级联系资料；新增 GET/PATCH `/api/v1/me`；联系弹层改为三级回退（contact_wxid → 发布者资料 → site_config 兜底）；GET /gigs/:id 响应新增 publisher_contact；新增迁移 0002；补登录态登出入口（用户中心页） | （待提交） |
+| 2026-08-29 | v0.3.0 | 用户中心（M6，经用户两轮对齐确认方向）: profiles 新增 wxid/qr_image_url 账号级联系资料；新增 GET/PATCH `/api/v1/me`；联系弹层改为三级回退（contact_wxid → 发布者资料 → site_config 兜底）；GET /gigs/:id 响应新增 publisher_contact；新增迁移 0002；补登录态登出入口（用户中心页） | 6922459 / 653e038 |
+| 2026-08-29 | v0.3.1 | UI 简化（用户 PO 指示）: 删除 /admin「联系方式设置」入口与页面（site_config 的 GET/PATCH API 保留，notice 编辑从此无 UI）；用户中心二维码合并为单按钮（选中即自动上传启用）；微信号合并为单按钮（输入框留空保存 = 显式置空，回退站点兜底） | （待提交） |

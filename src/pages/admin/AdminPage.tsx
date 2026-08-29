@@ -74,9 +74,6 @@ export default function AdminPage() {
           <Plus size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />
           发布新单子
         </Link>
-        <Link to="/admin/settings" className="btn">
-          联系方式设置
-        </Link>
         <Link to="/admin/account" className="btn">
           用户中心
         </Link>

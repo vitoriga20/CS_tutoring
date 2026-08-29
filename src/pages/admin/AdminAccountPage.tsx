@@ -48,7 +48,6 @@ export default function AdminAccountPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const [file, setFile] = useState<File | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -93,28 +92,30 @@ export default function AdminAccountPage() {
   async function handleSave() {
     if (save.isPending) return;
     const w = wxid.trim();
-    if (w.length < 1 || w.length > 40) {
-      setFieldErrors({ wxid: '须为 1..40 字符的字符串或 null（清空保存）' });
+    // 空框保存 = 清空（显式 null），学生端弹层回退到站点兜底（spec v0.3.0 三级回退）
+    if (w === '') {
+      setFieldErrors({});
+      await save.mutateAsync({ wxid: null });
+      return;
+    }
+    if (w.length > 40) {
+      setFieldErrors({ wxid: '须为 1..40 字符的字符串' });
       return;
     }
     setFieldErrors({});
     await save.mutateAsync({ wxid: w });
   }
 
-  function handleClearWxid() {
-    if (save.isPending) return;
-    setWxid('');
-    setFieldErrors({});
-    void save.mutateAsync({ wxid: null });
-  }
-
   function handleFile(e: ChangeEvent<HTMLInputElement>) {
     setUploadError(null);
-    setFile(e.target.files?.[0] ?? null);
+    const f = e.target.files?.[0] ?? null;
+    // 选中即自动上传并启用（用户指示 2026-08-29：合并「选择图片/上传并启用」两步）
+    if (f) void handleUpload(f);
+    e.target.value = '';
   }
 
-  async function handleUpload() {
-    if (!file || uploadBusy) return;
+  async function handleUpload(f: File) {
+    if (uploadBusy) return;
     if (!supabase || !profile) {
       setUploadError(supabase ? '资料未加载，无法上传' : 'Supabase 未配置，无法上传');
       return;
@@ -123,10 +124,10 @@ export default function AdminAccountPage() {
     setUploadError(null);
     const oldUrl = profile.qr_image_url ?? null;
     try {
-      const path = `qr/${profile.id}/qr-${Date.now()}.${extOf(file)}`;
+      const path = `qr/${profile.id}/qr-${Date.now()}.${extOf(f)}`;
       const { error: upErr } = await supabase.storage
         .from('site-assets')
-        .upload(path, file, { contentType: file.type || 'image/png' });
+        .upload(path, f, { contentType: f.type || 'image/png' });
       if (upErr) throw new Error(`上传失败：${upErr.message}`);
       const { data: pub } = supabase.storage.from('site-assets').getPublicUrl(path);
       await apiPatch('/me', { qr_image_url: pub.publicUrl });
@@ -134,7 +135,6 @@ export default function AdminAccountPage() {
       if (oldPath) {
         void supabase.storage.from('site-assets').remove([oldPath]).catch(() => undefined);
       }
-      setFile(null);
       void qc.invalidateQueries({ queryKey: ['me'] });
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '上传失败，请稍后重试');
@@ -206,7 +206,7 @@ export default function AdminAccountPage() {
         <div className="row">
           <label className="btn" style={{ position: 'relative', overflow: 'hidden' }}>
             <Upload size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />
-            选择图片
+            {uploadBusy ? '上传中…' : profile!.qr_image_url ? '更换二维码' : '上传二维码'}
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -215,10 +215,7 @@ export default function AdminAccountPage() {
               style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
             />
           </label>
-          {file && <span className="muted">{file.name}</span>}
-          <button type="button" className="btn btn-primary" disabled={!file || uploadBusy} onClick={() => void handleUpload()}>
-            {uploadBusy ? '上传中…' : '上传并启用'}
-          </button>
+          {uploadBusy && <span className="muted">选中即自动上传并启用</span>}
         </div>
         {uploadError && (
           <p className="f-err" role="alert">
@@ -242,21 +239,16 @@ export default function AdminAccountPage() {
           微信号：{fieldErrors.wxid}
         </p>
       )}
-      <p className="hint">发布单子时「单子专属微信」将默认填这里；清空后学生端回退到站点联系方式。</p>
+      <p className="hint">发布单子时「单子专属微信」将默认填这里；留空保存即清空，学生端回退到站点联系方式。</p>
 
       {saveError && (
         <p className="f-err" role="alert">
           {saveError}
         </p>
       )}
-      <div className="row">
-        <button type="button" className="btn btn-primary" disabled={save.isPending} onClick={() => void handleSave()}>
-          {save.isPending ? '保存中…' : saved ? '已保存 ✓' : '保存微信号'}
-        </button>
-        <button type="button" className="btn" disabled={save.isPending} onClick={handleClearWxid}>
-          清空微信号
-        </button>
-      </div>
+      <button type="button" className="btn btn-primary block" disabled={save.isPending} onClick={() => void handleSave()}>
+        {save.isPending ? '保存中…' : saved ? '已保存 ✓' : '保存微信号'}
+      </button>
 
       <button type="button" className="btn block" style={{ marginTop: 16 }} onClick={() => void handleSignOut()}>
         <LogOut size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />
