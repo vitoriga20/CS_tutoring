@@ -1,0 +1,255 @@
+/* ============================================================
+   BA 换皮组件样式层（decisions/005）
+   - 类名与 grad-ui.css 一一对应，TSX 零改动；grad-ui.css 留存停用可回滚。
+   - 语言体系：白卡 + 圆角三档 8/6/4、亮蓝骨架、黄下划线强调、
+     按钮平行四边形（clip-path，文字保持正立）、按压 scale(.9) 回弹。
+   - 取值全部来自 ba-tokens.css 令牌，不新增任意 hex（demo2 校验清单）。
+   ============================================================ */
+
+/* ---- 单子列表卡（原 grad-task-list 语汇 → BA 需求卡 .ocard 语汇） ---- */
+.filter-bar { margin-bottom: 16px; }
+.task-list { display: flex; flex-direction: column; gap: 12px; }
+.task-item {
+  display: flex; align-items: center; gap: 14px;
+  min-height: 78px;
+  padding: 14px 16px;
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ba-ink);
+  border-radius: var(--ba-radius-lg);
+  box-shadow: var(--ba-shadow-card);
+  transition: transform var(--ba-dur-press) var(--ba-ease-out), box-shadow var(--ba-dur-enter) var(--ba-ease-out), border-color var(--ba-dur-enter);
+}
+.task-item:hover { transform: translateY(-2px); box-shadow: var(--ba-shadow-hard); border-color: var(--ba-navy); }
+.t-main { flex: 1; min-width: 0; }
+.t-title { font-size: 16px; font-family: var(--display-cjk); font-weight: var(--ba-fw-bold); color: var(--ba-ink); line-height: var(--ba-lh-normal); }
+.t-meta { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; align-items: center; }
+
+/* 标签家族（demo2 .chip 语汇：浅蓝底 chip，语义色换底不换字） */
+.tag {
+  display: inline-flex; align-items: center;
+  min-height: 20px; padding: 2px 8px;
+  border: 1px solid var(--line);
+  background: var(--ba-surface-blue);
+  color: var(--ba-navy);
+  border-radius: var(--ba-radius-sm);
+  font: 700 10px/1.4 var(--ba-font-latin);
+  letter-spacing: .04em;
+}
+.tag.high, .tag.overdue { border-color: #f3c2c2; background: #fdeaea; color: var(--red); }
+.tag.medium { border-color: #f0e08a; background: #fff8cc; color: #8a6d00; }
+.tag.low { border-color: var(--line); background: var(--ba-surface); color: var(--muted); }
+.tag.status { border-color: var(--ba-navy); background: var(--ba-navy); color: var(--ba-white); }
+.t-subs { margin-top: 10px; padding-left: 12px; border-left: 2px solid var(--ba-yellow); list-style: none; color: var(--muted); font-size: var(--ba-fs-2xs); }
+
+/* ---- 按钮家族（demo2 .ba-btn 语汇：平行四边形 + 按压回弹） ----
+   clip-path 做平行四边形：文字保持正立（容器 transform 斜切会让文字跟着歪，
+   TSX 内无包裹层可反向回正，故用 clip-path 等效实现） */
+.btn {
+  min-height: 38px;
+  padding: 9px 22px;
+  border: 0;
+  position: relative;
+  background: var(--ba-btn-secondary-bg);
+  color: var(--ba-btn-fg);
+  cursor: pointer;
+  font: var(--ba-fw-bold) 13px/1.2 var(--display-cjk);
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  transition: transform var(--ba-dur-press) var(--ba-ease-out), filter var(--ba-dur-enter), background-color var(--ba-dur-enter);
+  filter: drop-shadow(0 2px 3px var(--ba-ink-30));
+}
+.btn:hover { filter: drop-shadow(0 3px 5px var(--ba-ink-30)) brightness(1.02); }
+.btn:active { transform: scale(var(--ba-press-scale)); }
+.btn-primary { background: var(--ba-btn-primary-bg); color: var(--ba-btn-primary-fg); }
+.btn.block { width: 100%; margin-top: 12px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; filter: none; }
+
+/* ---- 表单控件（demo2 .field 语汇：浅底圆角 + 聚焦亮蓝环） ---- */
+.input {
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--ba-radius-md);
+  background: var(--ba-white);
+  color: var(--ba-ink);
+  outline: none;
+  transition: border-color var(--ba-dur-enter), box-shadow var(--ba-dur-enter);
+}
+.input::placeholder { color: #9aa7b8; }
+.input:focus { border-color: var(--ba-navy); box-shadow: 0 0 0 3px rgba(39, 115, 225, .18); }
+select.input { cursor: pointer; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.muted { color: var(--muted); font-size: var(--ba-fs-2xs); }
+.hint { color: var(--muted); font-size: var(--ba-fs-2xs); margin-top: 11px; line-height: 1.65; }
+.code-line {
+  margin-bottom: 10px; padding: 11px 13px; word-break: break-all;
+  border: 1px solid var(--line); border-left: 3px solid var(--ba-yellow);
+  border-radius: var(--ba-radius-sm);
+  background: var(--ba-surface-blue); color: var(--ba-navy);
+  font: 700 12px/1.5 var(--mono);
+}
+
+/* ---- 弹窗（demo2 .ba-modal 语汇：白体圆角 + 标题黄下划线） ---- */
+.modal-mask { position: fixed; inset: 0; z-index: 110; display: flex; align-items: center; justify-content: center; background: rgba(36, 36, 36, .5); backdrop-filter: blur(5px); }
+.modal {
+  width: 470px; max-width: 92vw; max-height: 88vh; overflow-y: auto;
+  padding: 24px 26px;
+  border-radius: var(--ba-radius-lg);
+  background: var(--ba-white); color: var(--ba-ink);
+  box-shadow: var(--ba-shadow-hard), 0 24px 60px rgba(0, 0, 0, .25);
+  animation: modalIn var(--ba-dur-enter) var(--ba-ease-spring) both;
+}
+@keyframes modalIn { from { opacity: 0; transform: scale(.92); } }
+.modal h3 { margin-bottom: 12px; padding: 0 0 8px; border-bottom: 3px solid var(--ba-yellow); font-size: 20px; color: var(--ba-ink); }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 19px; }
+
+/* ---- 行内操作（.icon-btn 圆钮：白底描边圆 + 悬停亮蓝） ---- */
+.t-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.icon-btn {
+  min-width: 36px; height: 36px; padding: 0 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: var(--ba-radius-full);
+  background: var(--ba-white); color: var(--muted); cursor: pointer;
+  font: var(--ba-fw-bold) 11px/1 var(--ba-font-latin);
+  text-decoration: none;
+  box-shadow: var(--ba-shadow-card);
+  transition: color var(--ba-dur-enter), border-color var(--ba-dur-enter), transform var(--ba-dur-press) var(--ba-ease-out);
+}
+.icon-btn:hover { border-color: var(--ba-navy); color: var(--ba-navy); }
+.icon-btn:active { transform: scale(var(--ba-press-scale)); }
+
+/* ---- 管理端状态页签（demo2 .chip--btn 语汇：.is-on 变 navy 底白字） ---- */
+.gh-tabs { display: flex; gap: 4px; }
+.gh-tab {
+  padding: 5px 14px; border: 1px solid var(--line); border-radius: var(--ba-radius-sm);
+  background: var(--ba-surface-blue); color: var(--muted);
+  font: var(--ba-fw-bold) 11px/1.5 var(--ba-font-latin); letter-spacing: .04em;
+  cursor: pointer;
+  transition: background-color var(--ba-dur-enter), color var(--ba-dur-enter);
+}
+.gh-tab.active { background: var(--ba-navy); color: var(--ba-white); border-color: var(--ba-navy); }
+
+/* ---- 页面进场（沿用 grad 语义：仅 opacity，transform 会破坏 fixed 后代定位） ---- */
+.page { animation: pageIn .26s ease both; }
+@keyframes pageIn { from { opacity: 0; } }
+
+/* ---- 应用背景（AppBackground 类名不变，装饰换 BA 白亮调性：
+        浅蓝径向光 + 极淡蓝网格；不再有暗底黄晕） ---- */
+.app-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.app-bg__grid {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 62% 20%, rgba(75, 145, 231, .16), transparent 46%),
+    linear-gradient(rgba(39, 115, 225, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 115, 225, .035) 1px, transparent 1px);
+  background-size: auto, 42px 42px, 42px 42px;
+  -webkit-mask-image: radial-gradient(ellipse at center top, #000 30%, transparent 78%);
+  mask-image: radial-gradient(ellipse at center top, #000 30%, transparent 78%);
+}
+
+/* ============================================================
+   壳层（M3 新增类，换皮重实现）
+   ============================================================ */
+
+/* 键盘可达 focus 环 */
+:focus-visible { outline: 2px solid var(--ba-navy); outline-offset: 2px; }
+
+/* 应用壳：100dvh + 内容滚动 + 底部 Tab 安全区 */
+.app-shell { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100dvh; }
+.app-scroll { flex: 1; width: 100%; max-width: 640px; margin: 0 auto; padding: 0 16px calc(96px + env(safe-area-inset-bottom)); }
+
+/* 底部 2 Tab：白底 + 亮蓝激活 + 黄色指示条 */
+.tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, .96);
+  backdrop-filter: blur(8px);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabbar__item {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 0 7px;
+  border: 0; background: none;
+  color: var(--muted);
+  font: var(--ba-fw-bold) 10px/1 var(--ba-font-latin);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.tabbar__ind { width: 26px; height: 3px; border-radius: 2px; background: var(--ba-yellow); opacity: 0; transition: opacity .18s ease; }
+.tabbar__item.active { color: var(--ba-navy); }
+.tabbar__item.active .tabbar__ind { opacity: 1; }
+.tabbar__item:disabled { cursor: default; }
+
+/* 移动端页头（BA 化：标题黄下划线 + navy 平行四边形角标块 + 官方 logo 位） */
+.m-head { position: relative; margin: 18px 0 16px; padding: 10px 0 14px; border-bottom: 3px solid var(--ba-yellow); }
+.m-head::before {
+  content: ""; position: absolute; left: 0; bottom: -3px;
+  width: 64px; height: 6px; background: var(--ba-navy);
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.m-head::after { content: attr(data-tag); position: absolute; right: 0; top: 0; color: var(--muted); font: 600 9px/1 var(--ba-font-latin); letter-spacing: .18em; }
+.m-head__logo { display: block; height: 44px; width: auto; margin-bottom: 8px; }
+.m-head h1 { color: var(--ba-ink); font: var(--ba-fw-heavy) 28px/1.15 var(--display-cjk); letter-spacing: 0; }
+.m-head .m-head-sub { margin-top: 8px; color: var(--muted); font: 500 11px/1.4 var(--ba-font-latin); letter-spacing: .06em; }
+
+/* 首页筛选栏布局 */
+.filter-m { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.filter-m .input { width: 100%; }
+.filter-m .filter-m__subject { grid-column: 1 / -1; }
+
+/* 加载骨架（浅蓝底条块） */
+.skel-bar { height: 12px; background: var(--line-soft); border-radius: var(--ba-radius-sm); }
+.skel-bar--lg { height: 16px; width: 62%; }
+.skel-bar--tag { height: 14px; width: 38%; }
+.skel-bar--rate { height: 16px; width: 72px; margin-left: auto; }
+
+/* 空态 / 错误态状态盒（白卡圆角） */
+.state-box {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 44px 20px;
+  border: 1px solid var(--line); border-radius: var(--ba-radius-lg);
+  background: var(--ba-white); color: var(--muted); text-align: center;
+  box-shadow: var(--ba-shadow-card);
+}
+.state-box svg { color: var(--ba-navy); }
+.state-box--error { border-color: #f3c2c2; }
+.state-box--error svg { color: var(--red); }
+
+/* 分页条 */
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; }
+.pager__info { color: var(--muted); font: 500 11px/1 var(--ba-font-latin); letter-spacing: .05em; }
+
+/* 详情页（时薪大字换 navy——黄字在白底不可读，demo2 校验清单"写字不用强调黄"） */
+.back-link { display: inline-flex; align-items: center; gap: 5px; margin: 14px 0 2px; border: 0; background: none; color: var(--muted); font: var(--ba-fw-bold) 11px/1 var(--ba-font-latin); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; text-decoration: none; }
+.back-link:hover { color: var(--ba-navy); }
+.detail-rate { color: var(--ba-navy); font: var(--ba-fw-bold) 16px/1 var(--ba-font-latin); }
+.detail-label { display: block; margin: 16px 0 6px; padding-left: 9px; border-left: 2px solid var(--ba-yellow); color: var(--muted); font: var(--ba-fw-bold) 10px/1.2 var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+.detail-block { margin-top: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--ba-radius-md); background: var(--ba-white); color: var(--ba-ink); font-size: 13px; line-height: 1.7; box-shadow: var(--ba-shadow-card); }
+.detail-cta { position: fixed; left: 16px; right: 16px; bottom: calc(74px + env(safe-area-inset-bottom) + 10px); z-index: 55; max-width: 608px; margin: 0 auto; }
+
+/* 联系弹层内部 */
+.contact-qr { display: grid; place-items: center; margin: 14px 0 4px; padding: 10px; border: 1px solid var(--line); border-radius: var(--ba-radius-md); background: var(--ba-white); }
+.contact-qr img { display: block; width: 200px; height: 200px; object-fit: contain; }
+.contact-wxid-label { margin: 4px 0 6px; padding-left: 9px; border-left: 2px solid var(--ba-yellow); color: var(--muted); font: var(--ba-fw-bold) 10px/1.2 var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+
+/* 状态徽标补充档：open 用绿 */
+.tag.tag-open { border-color: rgba(35, 165, 90, .35); background: rgba(35, 165, 90, .1); color: var(--green); }
+
+/* 管理端表单 */
+.f-label { display: block; margin: 14px 0 6px; padding-left: 9px; border-left: 2px solid var(--ba-yellow); color: var(--muted); font: var(--ba-fw-bold) 12px/1.2 var(--display-cjk); letter-spacing: .05em; }
+.f-err { margin: 6px 0 0; padding-left: 9px; color: var(--red); font: var(--ba-fw-bold) 12px/1.5 var(--display-cjk); }
+.block-input { display: block; width: 100%; }
+textarea.block-input { resize: vertical; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* 动效降级（a11y） */
+@media (prefers-reduced-motion: reduce) {
+  .page, .task-item, .btn, .modal, .tabbar__ind { animation: none !important; transition: none !important; }
+}

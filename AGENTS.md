@@ -24,7 +24,7 @@
 - **Non-goals（v1）**：学生账号体系、报名/申请记录、在线聊天、在线支付、微信 JS-SDK 自定义分享、企业微信客服（v2 预留）。
 - **协作语言**：中文。
 - **协作模式**：单人。
-- **审美基准**：终末地-莱因科技-明日方舟「工业科研终端感」（近黑/冷灰底、安全黄警示色、少量冰蓝/洋红能量光；冷静、精密、克制），**不是** CourseCore 的黑白墨绿。素材与规范见 P1 索引。
+- **审美基准**（2026-08-29 换皮，决策 005）：蔚蓝档案 BA「arona 官方亮蓝」（`#2773e1` 骨架蓝、白亮表面、中性深灰文字、强调黄 `#ffe433`、斜切 -10°、圆角三档 8/6/4、硬投影 + 按压回弹），**不是** CourseCore 的黑白墨绿，也不是已弃用的 grad 工业暗黑风。素材与规范见 P1 索引。
 
 ## 当前入口
 
@@ -34,7 +34,7 @@
 | `BACKLOG.md` | 排期看板：只放未完成事项 |
 | `decisions/_INDEX.md` | 决策索引（P2：先按关键词定位，再读单文件） |
 | `specs/` | 待创建：根级三件套 spec.md + tasks.md + checklist.md |
-| 审美素材库（外部，只读） | `D:\KB\项目案例\01-软件系统\前端组件\终末地-莱因科技-明日方舟风格\`：`extracted-components/README.md` 是组件规范唯一源；同目录 `AGENTS.md` 是风格定义 |
+| 审美素材库（外部，只读） | `D:\KB\项目案例\01-软件系统\前端组件\BA\`：根 `tokens.css` 是令牌唯一源，`demo2/DESIGN.md` 是工具类产品实战层（组件组合 + 校验清单）；根 `DESIGN.md` 是体系层 |
 
 活跃 Spec：SPEC-001（`specs/spec.md`，状态「已批准」v0.2.0；三件套 + openapi.yaml + 3 个实体 schema + self-check 均在 `specs/`，实施按 `specs/tasks.md` 里程碑推进）。
 
@@ -81,7 +81,7 @@ powershell -NoProfile -File tools/path_align_hooks/drift_lite.ps1
 - 临时文件：统一 `temp_*` 前缀，用后即删；不提交缓存、日志、密钥。
 - `SUPABASE_SERVICE_ROLE_KEY` 只进 BFF 服务端（Cloudflare Secrets / `.dev.vars`），不进 `VITE_*`、前端 bundle 或仓库。
 - CourseCore 仓库（`C:\Users\vitoriga\OneDrive\Desktop\CourseCore`）只读参考，禁止任何改动。
-- 审美素材库（终末地-莱因科技-明日方舟风格）只读；移植组件遵守其提取铁律（动画全量搬运逐字一致、令牌入 theme、组件带来源注释头）。
+- 审美素材库（BA 蔚蓝档案，`D:\KB\项目案例\01-软件系统\前端组件\BA\`）只读；取令牌以根 `tokens.css` 为唯一源，组件组合参照 `demo2/DESIGN.md` 校验清单（尺寸用 `calc(N*var(--ba-u))`、换色只改 token、斜切容器内容回正、`z-index:-1` 父级 `isolation:isolate`）。
 - 管理员鉴权必须在 BFF 服务端查 `profiles.role`（教训 L-001），不得依赖 Supabase Auth 自带 role 字段。
 
 ## 踩坑教训
@@ -105,7 +105,7 @@ powershell -NoProfile -File tools/path_align_hooks/drift_lite.ps1
 | P1 | `调研报告.md` | 需要需求/架构/字段草案背景时 |
 | P1 | `BACKLOG.md` | 排期与待办 |
 | P1 | `specs/`（按需创建） | 任务命中对应模块/功能时读对应节点三件套，不整树预读；层级约定：小项目只建根级三件套，展开模块级需新决策 |
-| P1 | 审美素材库 `extracted-components/`（外部路径，见当前入口） | 实现任何 UI 时读 README 规范 + `theme/` 令牌，按分类取组件 |
+| P1 | 审美素材库（外部路径，见当前入口） | 实现任何 UI 时读根 `tokens.css` 令牌 + `demo2/DESIGN.md` 组件组合与校验清单 |
 | P2 | `decisions/_INDEX.md` | 追溯决策时按关键词定位 |
 
 ## 文档职责

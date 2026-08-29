@@ -1,0 +1,162 @@
+/* from: BA // 蔚蓝档案视觉令牌（arona 官方亮蓝主题为默认）
+   来源：素材库 D:\KB\项目案例\01-软件系统\前端组件\BA\tokens.css（体系层唯一源），
+   按 decisions/005 换皮决策适配：
+   - --ba-u 固定 1px（本项目 max-width 640 定宽响应式容器，vw 缩放会失衡，见决策 005）；
+   - arona 主题值直接并入 :root 作默认（本项目不做双主题切换）；
+   - 补 12u/14u 字号档（demo2 DESIGN.md 验证结论：16u 以下无档是真实移动端硬缺口）；
+   - 末段保留旧 grad 令牌名（--bg/--text/--yellow 等）映射到 BA 值：
+     main.css @theme inline 与任何残留引用不断链；文件头 @font-face 接管字体声明
+     （旧 tokens.css 留存停用，不再被 import）。 */
+
+/* ---- 字体（@font-face） ---- */
+/* HarmonyOS Sans SC：与旧 tokens.css 同源同文件（public/fonts 沿用） */
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("/fonts/HarmonyOS_Sans_SC_Regular.3848ad.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("/fonts/HarmonyOS_Sans_SC_Medium.fa43c4.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("/fonts/HarmonyOS_Sans_SC_Bold.50b93a.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "HarmonyOS Sans SC"; src: url("/fonts/HarmonyOS_Sans_SC_Black.e135b0.woff2") format("woff2"); font-weight: 900; font-display: swap; }
+/* Archivo 可变字体（100-900 全字重，34KB）：BA 拉丁/数字展示字体，素材库 fonts/ 拷入 */
+@font-face { font-family: "Archivo Variable"; src: url("/fonts/archivo-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+
+/* ---- 全局底座（reset / 滚动条；自旧 tokens.css 接管） ---- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; }
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: #dfeafa; }
+::-webkit-scrollbar-thumb { background: var(--ba-navy); border: 2px solid #dfeafa; border-radius: 4px; }
+
+/* ---- 设计令牌（:root） ---- */
+:root {
+  /* 根单位：固定 1px（决策 005，脱离 demo2 的 vw 缩放） */
+  --ba-u: 1px;
+  --ba-baseline: 1600;
+
+  /* 色彩 · 主色（arona 官方亮蓝，tokens.css arona 段原值） */
+  --ba-navy: #2773e1;
+  --ba-navy-85: #2773e1dd;
+  --ba-navy-mid: #4b91e7;
+
+  /* 文字：官方写字用中性深灰，不是彩色深蓝 */
+  --ba-ink: #242424;
+
+  --ba-yellow: #ffe433; /* 强调色：标题下划线、进度满、黄色徽章 */
+  --ba-sky: #89d5fd;
+  --ba-cyan: #66e0fe;
+
+  /* 色彩 · 表面与灰阶（arona：更白更亮） */
+  --ba-surface: #f4f7fb;
+  --ba-surface-blue: #eaf3ff;
+  --ba-btn-secondary: #dbeafe;
+  --ba-text-muted: #6b7787;
+  --ba-track: #c9d8ea;
+  --ba-line: #c9d8ea;
+  --ba-white: #fff;
+
+  /* 按钮：主按钮亮蓝底白字；次级浅蓝底深灰字 */
+  --ba-btn-primary-bg: var(--ba-navy);
+  --ba-btn-primary-fg: var(--ba-white);
+  --ba-btn-secondary-bg: #dbeafe;
+  --ba-btn-fg: var(--ba-ink);
+
+  /* 色彩 · 透明度（阴影降深度：官方"暗部阴影不做深"） */
+  --ba-ink-15: rgba(0, 0, 0, 0.1);
+  --ba-ink-30: rgba(0, 0, 0, 0.18);
+
+  /* 渐变（等级牌扫光） */
+  --ba-gradient-level: linear-gradient(120deg, var(--ba-navy), var(--ba-navy-mid) 15%, var(--ba-navy) 70%, var(--ba-navy));
+
+  /* 字体族 */
+  --ba-font-latin: 'Archivo Variable', 'Nunito Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --ba-font-cn: 'HarmonyOS Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --ba-font-sans: var(--ba-font-latin), var(--ba-font-cn);
+
+  --ba-fw-medium: 500;
+  --ba-fw-bold: 700;
+  --ba-fw-heavy: 800;
+
+  /* 字号阶梯 = 设计稿像素 × 1u（含 demo2 缺口补档 12/14） */
+  --ba-fs-2xs: calc(12 * var(--ba-u));
+  --ba-fs-ss: calc(14 * var(--ba-u));
+  --ba-fs-xs: calc(16 * var(--ba-u));
+  --ba-fs-sm: calc(18 * var(--ba-u));
+  --ba-fs-md: calc(20 * var(--ba-u));
+  --ba-fs-lg: calc(24 * var(--ba-u));
+  --ba-fs-xl: calc(26 * var(--ba-u));
+  --ba-fs-2xl: calc(32 * var(--ba-u));
+  --ba-fs-3xl: calc(36 * var(--ba-u));
+
+  --ba-lh-tight: 1.2;
+  --ba-lh-normal: 1.33;
+  --ba-lh-loose: 1.6;
+
+  /* 间距（常用档，按需扩展） */
+  --ba-s-4: calc(4 * var(--ba-u));
+  --ba-s-6: calc(6 * var(--ba-u));
+  --ba-s-8: calc(8 * var(--ba-u));
+  --ba-s-10: calc(10 * var(--ba-u));
+  --ba-s-12: calc(12 * var(--ba-u));
+  --ba-s-16: calc(16 * var(--ba-u));
+  --ba-s-20: calc(20 * var(--ba-u));
+  --ba-s-24: calc(24 * var(--ba-u));
+  --ba-s-32: calc(32 * var(--ba-u));
+  --ba-s-40: calc(40 * var(--ba-u));
+
+  /* 圆角（只有三档） */
+  --ba-radius-lg: calc(8 * var(--ba-u));
+  --ba-radius-md: calc(6 * var(--ba-u));
+  --ba-radius-sm: calc(4 * var(--ba-u));
+  --ba-radius-full: 50%;
+
+  /* 几何 · 斜切与描边 */
+  --ba-skew: -10deg;
+  --ba-skew-anti: 10deg;
+  --ba-skew-logo: -21.8deg;
+
+  --ba-underline: calc(6 * var(--ba-u)); /* 标题黄色下划线厚度 */
+
+  /* 阴影 · 硬投影 / 卡片阴影（arona 降深度版） */
+  --ba-shadow-hard: 0 var(--ba-s-2) var(--ba-s-8) var(--ba-s-2) var(--ba-ink-30);
+  --ba-shadow-hard-sm: 0 var(--ba-s-2) var(--ba-s-4) var(--ba-s-2) var(--ba-ink-30);
+  --ba-shadow-card: 0 var(--ba-s-2) var(--ba-s-8) 0 var(--ba-ink-15);
+
+  /* 动效 */
+  --ba-dur-press: 0.1s;
+  --ba-dur-enter: 0.3s;
+  --ba-ease-out: ease-out;
+  --ba-ease-spring: cubic-bezier(0.3, 1.3, 0.3, 1);
+  --ba-press-scale: 0.9;
+
+  /* ---- 旧 grad 令牌名 → BA 值映射（保 @theme inline 与残留引用不断链） ---- */
+  --bg: #eaf3ff;
+  --bg-deep: #dfeafa;
+  --panel: #ffffff;
+  --panel-2: #ffffff;
+  --panel-dark: #dbeafe;
+  --line: #c9d8ea;
+  --line-soft: rgba(39, 115, 225, 0.12);
+  --ink: #242424;
+  --text: #242424;
+  --muted: #6b7787;
+  --yellow: #ffe433;
+  --yellow-2: #f0d400;
+  --green: #23a55a;
+  --red: #e5484d;
+  --orange: #f5a623;
+  --display-cjk: var(--ba-font-cn);
+  --display-wide: var(--ba-font-latin);
+  --sans: var(--ba-font-sans);
+  --latin: var(--ba-font-latin);
+  --numeric: var(--ba-font-latin);
+  --mono: 'Space Grotesk', ui-monospace, SFMono-Regular, Consolas, monospace;
+  --shadow-panel: var(--ba-shadow-card);
+  --shadow-dark: var(--ba-shadow-hard);
+}
+
+/* 官方角色字体族（沿用旧 tokens 底座行为） */
+h2, h3, h4 { font-family: var(--display-cjk); font-weight: 700; }

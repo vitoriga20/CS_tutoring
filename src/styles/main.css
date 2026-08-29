@@ -1,7 +1,8 @@
-/* Tailwind v4 入口：令牌映射到 Tailwind 主题（值全部来自 tokens.css，禁止在此新增色值/间距） */
+/* Tailwind v4 入口：令牌映射到 Tailwind 主题（值全部来自 ba-tokens.css，禁止在此新增色值/间距）
+   BA 换皮（decisions/005）：旧 tokens.css / grad-ui.css 留存停用（不再 import），可回滚 */
 @import 'tailwindcss';
-@import './tokens.css';
-@import './grad-ui.css';
+@import './ba-tokens.css';
+@import './ba-ui.css';
 
 @theme inline {
   --color-bg: var(--bg);

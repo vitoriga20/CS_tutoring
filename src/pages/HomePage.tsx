@@ -47,6 +47,8 @@ export default function HomePage() {
   return (
     <main className="page">
       <header className="m-head" data-tag="TUTORING ORDERS / STUDENT">
+        {/* BA 换皮（decisions/005）：官方生成器 logo，alpha 包围盒已裁剪（public/logo-ba.png） */}
+        <img className="m-head__logo" src="/logo-ba.png" alt="CS_tutoring" />
         <h1>家教单</h1>
         <p className="m-head-sub">Open Orders · 免登录浏览 · 联系管理员接单</p>
       </header>
