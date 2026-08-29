@@ -7,9 +7,14 @@
 - [ ] TC-VIEW-001 默认列表只含 open 单子，`meta.total` 正确，`created_at desc, id desc` 排序（REQ-VIEW-01）
 - [ ] TC-VIEW-002 grade_level + mode + subject 组合筛选结果正确（REQ-VIEW-02）
 - [ ] TC-VIEW-003 首页空态文案「暂时没有新单子，过几天再来看看」，无骨架屏无错误提示（REQ-VIEW-03）
-- [ ] TC-VIEW-004 联系弹层：contact_wxid 为空时展示 site_config 二维码与 wxid，复制按钮生效（REQ-VIEW-04）
+- [ ] TC-VIEW-004 联系弹层回退链（v0.3）：单子专属微信 → 发布者 wxid/二维码 → site_config 兜底，复制按钮生效（REQ-VIEW-04，M6 按三级回退更新用例）
 - [ ] TC-VIEW-005 matched/closed 详情页徽标 + 联系按钮禁用（REQ-VIEW-05）
 - [ ] TC-VIEW-006 不存在的单子返回 404 页面文案，接口 code 为 GIG_NOT_FOUND（REQ-VIEW-06）
+- [ ] TC-VIEW-007 弹层三级回退组合（contact_wxid × 发布者 wxid × 发布者 qr）逐项符合 P-GIG-04（REQ-VIEW-07）
+- [ ] TC-ACCT-001 用户中心查看/修改/置空自己 wxid 均 200 且 GET 立即反映（REQ-ACCT-01）
+- [ ] TC-ACCT-002 用户中心非法资料（41 字 wxid、非 https qr URL）422 且 details 指向字段（REQ-ACCT-02）
+- [ ] TC-ACCT-003 用户中心匿名 401、free 用户 403（REQ-ACCT-03）
+- [ ] CT-GIG-003 GET /gigs/:id 响应含 publisher_contact（发布者 wxid/qr，未设置为 null），列表响应不含该字段（REQ-CT-03）
 - [ ] TC-ADMIN-001 发布成功 201，status=open，published_by 正确（REQ-ADMIN-01）
 - [ ] TC-ADMIN-002 缺 region（无论 mode）拒绝 422，details 含 region（REQ-ADMIN-02）
 - [ ] TC-ADMIN-003 非法字段（空标题/61 字标题/2001 字要求/非法枚举/空 student_info/非法 student_gender）均 422（REQ-ADMIN-03）
@@ -25,6 +30,7 @@
 - [ ] 分页参数 `page/pageSize` 生效：默认 20、上限 100、page<1 归 1
 - [ ] status 查询参数 open/matched/closed/all 生效，非法值 422
 - [ ] PATCH site-config 后 GET 立即反映新值（gigs 列表边缘缓存 TTL 不影响 site-config）
+- [ ] PATCH me 后 GET 立即反映新值；置空 wxid（显式 null）后弹层回退链按空值处理
 
 ## 3. UI 质量门（反 slop）
 
@@ -57,4 +63,6 @@
 - [ ] Cloudflare Secrets 注入 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY；KV RATE_LIMIT_KV 已绑定
 - [ ] 线上 `/api/v1/healthz` 返回 200
 - [ ] 线上冒烟：TC-VIEW-001 / TC-VIEW-004 通过（真实扫码加微信可达管理员）
+- [ ] 用户中心手工验收：登录 → 上传自己的二维码 + 填 wxid → 发布测试单 → 详情弹层展示发布者资料 → 退出登录回到登录页（M6）
+- [ ] 存量数据订正核对：117 条 offline 单改 online 前后行数一致（T-M6-5，执行前需用户明确同意）
 - [ ] spec.md 状态改「已实现」；BACKLOG 闭环项清除并写 decisions；AGENTS.md 踩坑教训回填

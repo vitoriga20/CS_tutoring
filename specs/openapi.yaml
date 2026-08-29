@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: CS_tutoring BFF API
-  version: v0.2.0
+  version: v0.3.0
   description: 家教单发布与接单平台 BFF。唯一事实来源，与 specs/spec.md 第 3/6 部分同源。错误响应统一 {error, code, detail?}。
 servers:
   - url: https://cstutoring.pages.dev
@@ -12,6 +12,7 @@ tags:
   - name: system
   - name: gigs
   - name: site-config
+  - name: me
 
 paths:
   /api/v1/healthz:
@@ -149,14 +150,14 @@ paths:
       operationId: getGig
       responses:
         '200':
-          description: 详情
+          description: 详情；data 为 GigDetail（Gig + 发布者联系资料）
           content:
             application/json:
               schema:
                 type: object
                 required: [data]
                 properties:
-                  data: { $ref: '#/components/schemas/Gig' }
+                  data: { $ref: '#/components/schemas/GigDetail' }
         '404': { $ref: '#/components/responses/GigNotFound' }
     patch:
       tags: [gigs]
@@ -249,6 +250,59 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
 
+  /api/v1/me:
+    get:
+      tags: [me]
+      summary: 查看当前登录账号资料（admin）
+      operationId: getMe
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 当前账号 profiles 行
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Profile' }
+              example:
+                data:
+                  id: 6f9619ff-8b86-d011-b42d-00c04fc964ff
+                  role: admin
+                  display_name: null
+                  avatar_url: null
+                  wxid: my-wx-001
+                  qr_image_url: null
+                  created_at: '2026-08-29T08:00:00.000Z'
+                  updated_at: '2026-08-29T08:00:00.000Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    patch:
+      tags: [me]
+      summary: 修改当前登录账号资料（admin）
+      operationId: updateMe
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProfileUpdate' }
+            example: { wxid: my-wx-001 }
+      responses:
+        '200':
+          description: 已更新
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -337,6 +391,51 @@ components:
         qr_image_url: { type: string, minLength: 1, maxLength: 500, pattern: '^https://' }
         notice: { type: [string, 'null'], maxLength: 200 }
       description: notice 空字符串规范化为 null；未知字段忽略。
+    PublisherContact:
+      type: object
+      description: 发布者账号级联系资料（profiles 行）；学生联系弹层「发布者资料」回退层数据源。
+      properties:
+        wxid: { type: [string, 'null'], maxLength: 40 }
+        qr_image_url:
+          type: [string, 'null']
+          maxLength: 500
+          pattern: '^https://'
+    GigDetail:
+      allOf:
+        - $ref: '#/components/schemas/Gig'
+        - type: object
+          required: [publisher_contact]
+          properties:
+            publisher_contact: { $ref: '#/components/schemas/PublisherContact' }
+      description: GET /gigs/:id 专有形状；列表响应不含 publisher_contact。
+    Profile:
+      type: object
+      required: [id, role, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        role: { $ref: '#/components/schemas/ProfileRole' }
+        display_name: { type: [string, 'null'], maxLength: 40 }
+        avatar_url: { type: [string, 'null'] }
+        wxid: { type: [string, 'null'], maxLength: 40 }
+        qr_image_url:
+          type: [string, 'null']
+          maxLength: 500
+          pattern: '^https://'
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ProfileRole:
+      type: string
+      enum: [admin, free]
+    ProfileUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        wxid: { type: [string, 'null'], maxLength: 40 }
+        qr_image_url:
+          type: [string, 'null']
+          maxLength: 500
+          pattern: '^https://'
+      description: wxid 显式 null 合法（清空）；qr_image_url 只经 Storage 上传回写流程产生；未知字段忽略。
     Error:
       type: object
       required: [error, code]

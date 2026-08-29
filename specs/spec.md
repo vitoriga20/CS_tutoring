@@ -1,7 +1,7 @@
 # SPEC-001: 家教单发布与接单（CS_tutoring 根级规范）
 
-> **规范状态:** 已批准（2026-08-29，用户确认 v0.2.0）
-> **版本:** v0.2.0
+> **规范状态:** 待批准（2026-08-29，v0.3.0 修订稿待用户确认；v0.2.0 及此前已批准）
+> **版本:** v0.3.0
 > **负责人:** PO/TL/QA: 用户（单人项目）
 > **代码包路径:** `src/`（React 前端）、`bff/src/`（Hono BFF）、`functions/api/[[route]].js`（Pages Function 产物）、`supabase/migrations/`（数据库迁移）
 > **最后修改:** 见 Git 提交记录（仓库尚无提交）
@@ -26,8 +26,8 @@
 | 区域 | Region | 值对象 | 学员所在城市或区域，线上、线下单都必填 | `region` 字段 | `gigs.region VARCHAR(40) NOT NULL` | `杭州市` |
 | 学员性别 | StudentGender | 枚举 | 学员性别标注，未知可缺省 | `type StudentGender` | `gigs.student_gender VARCHAR(10)` | `male`, `female`, `unknown` |
 | 学员情况 | StudentInfo | 值对象 | 学员的分数、基础、性格等补充描述 | `student_info` 字段 | `gigs.student_info TEXT` | `数学 85/150，基础较弱` |
-| 站点配置 | SiteConfig | 值对象 | 全站单行配置：管理员微信联系方式 | `interface SiteConfig` | `site_config` 表（恒 1 行，id=1） | `SiteConfig { wxid, qr_image_url }` |
-| 用户资料 | Profile | 聚合根 | auth.users 的 1:1 扩展，承载角色 | `interface Profile` | `profiles` 表 | `Profile { id, role }` |
+| 站点配置 | SiteConfig | 值对象 | 全站单行配置：兜底联系方式与弹层提示（发布者资料缺失时回退） | `interface SiteConfig` | `site_config` 表（恒 1 行，id=1） | `SiteConfig { wxid, qr_image_url, notice }` |
+| 用户资料 | Profile | 聚合根 | auth.users 的 1:1 扩展，承载角色与该账号的联系资料（微信号/二维码） | `interface Profile` | `profiles` 表 | `Profile { id, role, wxid, qr_image_url }` |
 | 用户角色 | ProfileRole | 枚举 | 管理员或普通用户 | `type ProfileRole` | `profiles.role VARCHAR(10)` | `admin`, `free` |
 | 管理员 | Admin | 服务 | profiles.role='admin' 的登录用户，唯一可写角色 | BFF `assertAdmin()` | 无独立表 | — |
 
@@ -70,8 +70,20 @@
     那么 页面显示空态文案 "暂时没有新单子，过几天再来看看"
     且 页面不显示骨架屏或错误提示
 
-  场景: 详情页联系弹层（contact_wxid 回退规则）
-    假设 访客打开单子 id 为 G1 的详情页 且 G1.contact_wxid 为空
+  场景: 详情页联系弹层（单子专属微信优先）
+    假设 访客打开单子 id 为 G1 的详情页 且 G1.contact_wxid 非空
+    当 访客点击底部固定按钮 "联系小助理接单"
+    那么 弹层展示 G1.contact_wxid 与发布者二维码（发布者未上传二维码时展示 site_config.qr_image_url）
+    且 弹层提供复制 wxid 的按钮，点击后 wxid 进入剪贴板
+
+  场景: 详情页联系弹层（发布者资料回退）
+    假设 访客打开单子 id 为 G2 的详情页 且 G2.contact_wxid 为空 且 G2 发布者的 profiles.wxid 非空
+    当 访客点击底部固定按钮 "联系小助理接单"
+    那么 弹层展示发布者 wxid 与发布者二维码（发布者未上传二维码时展示 site_config.qr_image_url）
+    且 弹层提供复制 wxid 的按钮，点击后 wxid 进入剪贴板
+
+  场景: 详情页联系弹层（站点配置兜底）
+    假设 访客打开单子 id 为 G3 的详情页 且 G3.contact_wxid 为空 且 G3 发布者的 profiles.wxid 为空
     当 访客点击底部固定按钮 "联系小助理接单"
     那么 弹层展示 site_config.qr_image_url 的二维码与 site_config.wxid
     且 弹层提供复制 wxid 的按钮，点击后 wxid 进入剪贴板
@@ -192,6 +204,64 @@
     且 再向 GET /api/v1/gigs/G3 发送请求时返回 404
 ```
 
+### 2.3 功能: 用户中心（需登录且 role=admin）
+
+> 二维码图片经 supabase-js 直传 Storage（与 site-config 现有模式一致），成功后由前端将公开 URL 经 PATCH /me 回写；不上传二进制到 BFF。
+
+```gherkin
+功能: 用户中心
+  作为管理员
+  我想要登录登出并维护自己的微信号与二维码
+  以便学生联系到我本人而不是站点兜底账号
+
+  背景:
+    假设 已登录且 profiles.role 为 "admin"（携带有效 JWT）
+
+  场景: 查看自己的资料
+    当 我向 GET /api/v1/me 发送请求
+    那么 响应状态码是 200
+    且 data 含 wxid 与 qr_image_url（未设置过的字段为 null）
+
+  场景: 修改自己的微信号
+    当 我向 PATCH /api/v1/me 发送 {"wxid": "my-wx-001"}
+    那么 响应状态码是 200
+    且 data.wxid 为 "my-wx-001"
+
+  场景: 置空自己的微信号
+    当 我向 PATCH /api/v1/me 发送 {"wxid": null}
+    那么 响应状态码是 200
+    且 data.wxid 为 null
+
+  场景: 非法资料被拒绝
+    当 我向 PATCH /api/v1/me 发送 wxid 为 41 个字符的请求
+    那么 响应状态码是 422
+    且 code 为 "VALIDATION_ERROR"
+    且 details 中包含字段 "wxid"
+
+  场景: 未登录访问被拒绝
+    当 我不带 Authorization 头向 GET /api/v1/me 发送请求
+    那么 响应状态码是 401
+    且 code 为 "UNAUTHENTICATED"
+
+  场景: 非 admin 登录用户访问被拒绝
+    假设 已登录且 profiles.role 为 "free"
+    当 我向 GET /api/v1/me 发送请求
+    那么 响应状态码是 403
+    且 code 为 "FORBIDDEN"
+
+  场景: 上传自己的二维码
+    假设 我在用户中心选择了一张 PNG 图片
+    当 我确认上传
+    那么 图片写入 Storage bucket site-assets 的 qr/<我的用户id>/ 目录
+    且 上传成功后 PATCH /api/v1/me 将公开 URL 写入 qr_image_url
+    且 旧二维码对象被尽力清理（失败不影响主流程）
+
+  场景: 退出登录
+    假设 我在用户中心页面
+    当 我点击 "退出登录" 按钮
+    那么 会话结束并回到管理登录页
+```
+
 ---
 
 ## 第 3 部分: API 接口与契约（OpenAPI 3.1 同源）
@@ -203,11 +273,13 @@
 | `/api/v1/healthz` | GET | 无 | 200 `{status, ts}` | — |
 | `/api/v1/gigs` | GET | 无 | 200 `{data: Gig[], meta: {page, pageSize, total}}` | 422 `VALIDATION_ERROR` |
 | `/api/v1/gigs` | POST | admin | 201 `{data: Gig}` | 401 `UNAUTHENTICATED` / 403 `FORBIDDEN` / 422 |
-| `/api/v1/gigs/:id` | GET | 无 | 200 `{data: Gig}` | 404 `GIG_NOT_FOUND` |
+| `/api/v1/gigs/:id` | GET | 无 | 200 `{data: GigDetail}`（含 `publisher_contact`） | 404 `GIG_NOT_FOUND` |
 | `/api/v1/gigs/:id` | PATCH | admin | 200 `{data: Gig}` | 401/403/404 `GIG_NOT_FOUND` / 422 `GIG_INVALID_TRANSITION` |
 | `/api/v1/gigs/:id` | DELETE | admin | 204 无响应体 | 401/403/404 |
 | `/api/v1/site-config` | GET | 无 | 200 `{data: SiteConfig}` | — |
 | `/api/v1/site-config` | PATCH | admin | 200 `{data: SiteConfig}` | 401/403/422 |
+| `/api/v1/me` | GET | admin | 200 `{data: Profile}` | 401 `UNAUTHENTICATED` / 403 `FORBIDDEN` |
+| `/api/v1/me` | PATCH | admin | 200 `{data: Profile}` | 401/403/422 |
 
 **契约要点（与 CourseCore BFF 骨架同源，禁止另创约定）:**
 - 分页参数: `page`（默认 1，最小 1）、`pageSize`（默认 20，最小 1，最大 100）；列表排序 `created_at desc, id desc`。
@@ -215,6 +287,8 @@
 - `status` 查询参数取值 `open | matched | closed | all`，缺省 `open`；非法取值返回 422。
 - `subject` 筛选为 trim 后不区分大小写的精确匹配（`lower(subject) = lower($subject)`）；筛选值含 `*` 或 `%` 时返回 422 `VALIDATION_ERROR`（通配符不作为筛选语法，v0.2.1 补钉）。
 - 请求体中的未知字段一律忽略，不报错。
+- `GET /gigs/:id` 响应 data 为 `GigDetail = Gig + publisher_contact`；`publisher_contact: {wxid, qr_image_url}` 取自发布者 profiles 行联系资料，两字段均可为 null（未设置）。列表响应不含 publisher_contact。
+- `PATCH /me` 请求体为 `{wxid?, qr_image_url?}`（至少一项）；`wxid` 显式 null 合法（清空）。二维码 URL 只经上传回写流程产生。
 - BFF 错误响应统一 `{error, code, detail?}`；429 附加 `Retry-After` 头，并带 `X-RateLimit-Limit` / `X-RateLimit-Remaining` 头。
 - 前端 BFF 客户端对全部请求自动附加 `Authorization: Bearer <supabase access token>`（存在会话时），匿名请求不附加该头；token 来自 supabase-js 会话。
 
@@ -222,7 +296,7 @@
 
 ## 第 4 部分: 数据模型与校验规则
 
-实体 JSON Schema: `specs/gig.schema.json`、`specs/site_config.schema.json`、`specs/profile.schema.json`。数据库迁移文件: `supabase/migrations/0001_init.sql`（M1 任务产出）。
+实体 JSON Schema: `specs/gig.schema.json`、`specs/site_config.schema.json`、`specs/profile.schema.json`。数据库迁移文件: `supabase/migrations/0001_init.sql`（M1 任务产出）、`supabase/migrations/0002_profile_contact.sql`（M6 任务产出）。
 
 ### 4.1 gigs 表
 
@@ -249,6 +323,8 @@
 
 ### 4.2 site_config 表（单行，id 恒为 1）
 
+> v0.3 起职责收窄为「兜底联系方式 + 弹层提示」：联系弹层优先展示发布者资料，发布者 wxid 与二维码均缺失时才回退本表（回退链见第 5 部分附 P-GIG-04）。
+
 | 业务字段 | 数据库列 | 类型/约束 | 必填 | 默认值 |
 |----------|----------|-----------|------|--------|
 | 行 ID | `id INT PRIMARY KEY` | CHECK (id = 1) | 是 | 1 |
@@ -265,9 +341,13 @@
 | 角色 | `role VARCHAR(10)` | CHECK in ('admin','free') | 是 | `free` |
 | 昵称 | `display_name VARCHAR(40)` | 可空 | 否 | NULL |
 | 头像 | `avatar_url TEXT` | 可空 | 否 | NULL |
+| 微信号 | `wxid VARCHAR(40)` | 可空；提供时 trim 后 1..40 | 否 | NULL |
+| 二维码 | `qr_image_url TEXT` | 可空；提供时 `^https://` 开头且 ≤500 字符 | 否 | NULL |
 | 时间戳 | `created_at` / `updated_at timestamptz` | — | 是 | `now()` |
 
 配 `on_auth_user_created` 触发器：新注册用户自动插入 role='free' 的 profiles 行。
+
+> v0.3 新增 `wxid` / `qr_image_url` 两列，承载账号级联系资料（用户中心数据源，联系弹层「发布者资料」回退层）。写入只经 BFF `PATCH /me`（service_role），RLS 写入仍无策略（拒绝）。
 
 ### 4.4 RLS 策略（纵深防御；BFF 用 service_role 绕过 RLS 写入）
 
@@ -315,6 +395,7 @@ states:
 validateGigInput(body: unknown): { ok: true, value: GigCreate } | { ok: false, details: FieldIssue[] }
 validateGigPatch(body: unknown, current: Gig): { ok: true, value: GigUpdate } | { ok: false, details: FieldIssue[] }
 validateSiteConfigPatch(body: unknown): { ok: true, value: SiteConfigUpdate } | { ok: false, details: FieldIssue[] }
+validateProfilePatch(body: unknown): { ok: true, value: ProfileUpdate } | { ok: false, details: FieldIssue[] }
 assertTransition(from: GigStatus, to: GigStatus): void   // 非法迁移抛 Hono HTTPException(422, GIG_INVALID_TRANSITION)
 ```
 
@@ -334,6 +415,8 @@ assertTransition(from: GigStatus, to: GigStatus): void   // 非法迁移抛 Hono
 - `wxid`: trim 后长度 1..40
 - `qr_image_url`: 长度 1..500 且以 `https://` 开头
 - `notice`: 长度 ≤200；空字符串规范化为 NULL
+- `profile.wxid`: 可空；提供时 trim 后长度 1..40；显式 null 合法（清空）
+- `profile.qr_image_url`: 可空；提供时长度 1..500 且以 `https://` 开头
 - 可空字段的 NULL 触发条件与 `student_gender` 缺省规则见 §5.2。
 
 ### 5.4 管理员鉴权规则（教训 L-001 的落地）
@@ -347,7 +430,7 @@ assertTransition(from: GigStatus, to: GigStatus): void   // 非法迁移抛 Hono
 | P-GIG-01 | 状态机 YAML；Gherkin 合法/非法流转 | 见下 PT-GIG-01 | `GigStatus` × `GigStatus` | PT-GIG-01 |
 | P-GIG-02 | Gherkin 默认列表；§3 status 参数 | 见下 PT-GIG-02 | 任意 status 混合的 DB 快照 | PT-GIG-02 |
 | P-GIG-03 | Gherkin 未登录/非 admin 场景；错误码表 | 见下 PT-GIG-03 | `{无 token, free token, admin token}` | PT-GIG-03 |
-| P-GIG-04 | Gherkin 联系弹层 | 见下 PT-GIG-04 | `contact_wxid ∈ {null, 非null}` | PT-GIG-04 |
+| P-GIG-04 | Gherkin 联系弹层（v0.3 三级回退） | 见下 PT-GIG-04 | `contact_wxid × publisher.wxid × publisher.qr ∈ {null, 非null}³` | PT-GIG-04 |
 
 ```text
 P-GIG-01: Allowed = {(open,matched),(open,closed),(matched,open),(matched,closed),(closed,open)}
@@ -365,9 +448,14 @@ P-GIG-03: ∀ 请求 ∈ {POST /gigs, PATCH /gigs/:id, DELETE /gigs/:id, PATCH /
     有效 token 且 profiles.role == "admin"     ⇒ 按语义返回 201/200/204
     前两种情况 gigs 与 site_config 表无任何变更
 
-P-GIG-04: ∀ gig:
-    gig.contact_wxid == null ⇒ 弹层展示 site_config.wxid 与 site_config.qr_image_url
-    gig.contact_wxid != null ⇒ 弹层展示 gig.contact_wxid 与 site_config.qr_image_url
+P-GIG-04: ∀ gig, ∀ publisher(gig):
+  wxid 回退链: gig.contact_wxid → publisher.wxid → site_config.wxid
+    gig.contact_wxid != null                           ⇒ 弹层 wxid = gig.contact_wxid
+    gig.contact_wxid == null ∧ publisher.wxid != null  ⇒ 弹层 wxid = publisher.wxid
+    否则                                               ⇒ 弹层 wxid = site_config.wxid
+  qr 回退链（独立于 wxid 链）: publisher.qr_image_url → site_config.qr_image_url
+    publisher.qr_image_url != null                     ⇒ 弹层二维码 = publisher.qr_image_url
+    否则                                               ⇒ 弹层二维码 = site_config.qr_image_url
 ```
 
 **Correctness 变更门:** 写入/状态迁移相关实现（`bff/src/routes/gigs.ts`、`bff/src/lib/validators.ts`、`bff/src/middleware/adminAuth.ts`）进入 dirty diff 时，必须跑命中的 `PT-GIG-01..03`；`src/components/ContactModal` 相关文件变更时跑 `PT-GIG-04`。只改文档/排版时不触发。
@@ -400,7 +488,7 @@ P-GIG-04: ∀ gig:
 | Gherkin: 默认列表只展示 open | REQ-VIEW-01 | 验收测试 | TC-VIEW-001 | 已自动化（bff/tests PT-GIG-02 路由级覆盖） |
 | Gherkin: 组合筛选 | REQ-VIEW-02 | 验收测试 | TC-VIEW-002 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 首页空态 | REQ-VIEW-03 | 验收测试 | TC-VIEW-003 | 已自动化（tests/view-components.test.tsx，2026-08-29 经用户确认新增 @testing-library/react + happy-dom） |
-| Gherkin: 详情联系弹层 | REQ-VIEW-04 | 验收测试 | TC-VIEW-004 | 已自动化（tests/view-components.test.tsx，含 P-GIG-04 组件侧两分支与剪贴板断言） |
+| Gherkin: 详情联系弹层 | REQ-VIEW-04 | 验收测试 | TC-VIEW-004 | 已自动化（tests/view-components.test.tsx，v0.2 两分支规则；M6 按 v0.3 三级回退更新） |
 | Gherkin: 已匹配单子详情 | REQ-VIEW-05 | 验收测试 | TC-VIEW-005 | 已自动化（tests/view-components.test.tsx，matched/closed 双状态徽标 + 按钮禁用） |
 | Gherkin: 不存在的单子 | REQ-VIEW-06 | 验收测试 | TC-VIEW-006 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 发布成功 | REQ-ADMIN-01 | 验收测试 | TC-ADMIN-001 | 已自动化（bff/tests/gigs-route.test.ts） |
@@ -415,7 +503,12 @@ P-GIG-04: ∀ gig:
 | Properties: P-GIG-01 | REQ-PT-01 | 属性测试 | PT-GIG-01 | 已自动化（bff/tests/validators.test.ts 3×3 全组合） |
 | Properties: P-GIG-02 | REQ-PT-02 | 属性测试 | PT-GIG-02 | 已自动化（bff/tests/gigs-route.test.ts 路由级） |
 | Properties: P-GIG-03 | REQ-PT-03 | 属性测试 | PT-GIG-03 | 已自动化（bff/tests/gigs-route.test.ts 401/403/201 三态+无变更断言） |
-| Properties: P-GIG-04 | REQ-PT-04 | 属性测试 | PT-GIG-04 | 已自动化（tests/contact-target.test.ts，纯函数 oracle 遍历 contact_wxid ∈ {null, 非null}；组件渲染侧由 TC-VIEW-004 承接） |
+| Properties: P-GIG-04 | REQ-PT-04 | 属性测试 | PT-GIG-04 | 已自动化（tests/contact-target.test.ts，v0.2 规则；M6 按 v0.3 wxid 三级 + qr 两级 oracle 扩展） |
+| Gherkin: 弹层发布者资料回退 / 站点兜底 | REQ-VIEW-07 | 验收测试 | TC-VIEW-007 | 待自动化（M6，随 P-GIG-04 扩展） |
+| Gherkin: 用户中心 查看/修改/置空 wxid | REQ-ACCT-01 | 验收测试 | TC-ACCT-001 | 待自动化（M6） |
+| Gherkin: 用户中心 非法资料 422 | REQ-ACCT-02 | 验收测试 | TC-ACCT-002 | 待自动化（M6） |
+| Gherkin: 用户中心 401/403 | REQ-ACCT-03 | 契约测试 | CT-ACCT-001 | 待自动化（M6） |
+| OpenAPI: GET /gigs/:id 含 publisher_contact | REQ-CT-03 | 契约测试 | CT-GIG-003 | 待自动化（M6） |
 
 一致性保障: 测试文件存 `tests/`，用例 ID 与本矩阵逐字一致；全部转「已自动化」前不允许把 M5 标记完成。
 
@@ -447,7 +540,7 @@ P-GIG-04: ∀ gig:
 **约束:**
 - API 路径前缀 `/api/v1/` 不得改变；响应外壳与错误码不得偏离第 3/6 部分。
 - 前端技术栈钉死: React 19 + TypeScript + Vite + Tailwind CSS v4 + react-router v7 + TanStack Query v5 + lucide-react；测试栈 Vitest。
-- 登录仅管理员使用，走 supabase-js（邮箱+密码，Supabase Auth）；学生免登录；BFF 不提供登录端点。
+- 登录仅管理员使用，走 supabase-js（邮箱+密码，Supabase Auth）；学生免登录；BFF 不提供登录端点。用户中心（`/admin/account`）同样仅 admin 可用，普通登录用户（free）只出现在无权限页。
 - 管理员提权为手动 SQL: `update profiles set role='admin' where id = <uuid>;`（运营动作，不开发界面）。
 - `SUPABASE_SERVICE_ROLE_KEY` 只存 Cloudflare Secrets 与本地 `.dev.vars`。
 - 设计令牌（色板/字体/间距/圆角/阴影）与组件动画一律从素材库 `extracted-components/theme/` 逐字移植，禁止自创色值；组件移植遵守素材库提取铁律（动画全量搬运、令牌入 theme、带来源注释头）。
@@ -462,3 +555,4 @@ P-GIG-04: ∀ gig:
 | 2026-08-29 | v0.2.0 | gigs 表修订: region 改为无条件必填，新增 student_gender / student_info 字段，requirements 明确为「对老师的要求」，移除 region 条件 CHECK | （仓库尚无提交） |
 | 2026-08-29 | v0.2.1 | M2 实施回补: subject 筛选通配符（* 与 %）返回 422；覆盖矩阵按 BFF 测试落地更新自动化状态 | （仓库尚无提交） |
 | 2026-08-29 | v0.2.2 | M3 实施 UI 调整（用户 PO 指示）: 底部导航移除「联系」Tab（2 Tab：单子/管理），联系入口收敛到单子详情页底部按钮；按钮文案「联系管理员接单」→「联系小助理接单」（弹层内文案同步） | （仓库尚无提交） |
+| 2026-08-29 | v0.3.0 | 用户中心（M6，经用户两轮对齐确认方向）: profiles 新增 wxid/qr_image_url 账号级联系资料；新增 GET/PATCH `/api/v1/me`；联系弹层改为三级回退（contact_wxid → 发布者资料 → site_config 兜底）；GET /gigs/:id 响应新增 publisher_contact；新增迁移 0002；补登录态登出入口（用户中心页） | （待提交） |

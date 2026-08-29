@@ -2,13 +2,15 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "profile.schema.json",
   "title": "Profile（数据库实体，profiles 表整行）",
-  "description": "auth.users 的 1:1 扩展；role 由 on_auth_user_created 触发器初始化为 free，管理员提权为手动 SQL。",
+  "description": "auth.users 的 1:1 扩展；role 由 on_auth_user_created 触发器初始化为 free，管理员提权为手动 SQL。v0.3 新增 wxid/qr_image_url 账号级联系资料（用户中心数据源，联系弹层「发布者资料」回退层），写入只经 BFF PATCH /me。",
   "type": "object",
   "properties": {
     "id": { "type": "string", "format": "uuid" },
     "role": { "enum": ["admin", "free"] },
     "display_name": { "type": ["string", "null"], "maxLength": 40 },
     "avatar_url": { "type": ["string", "null"] },
+    "wxid": { "type": ["string", "null"], "maxLength": 40 },
+    "qr_image_url": { "type": ["string", "null"], "maxLength": 500, "pattern": "^https://" },
     "created_at": { "type": "string", "format": "date-time" },
     "updated_at": { "type": "string", "format": "date-time" }
   },

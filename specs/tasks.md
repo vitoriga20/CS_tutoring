@@ -49,6 +49,18 @@
 验收：TC-ADMIN-004/005 手工回归通过；管理端在 375px 可用（延续全屏后台习惯）。
 （2026-08-29 收口：四个任务落地。实现注记——AdminGate 用嵌套路由包住 /admin 三级页面，会话恢复与 profiles.role 确认跨子路由保持（role 判定只做 UI 分流，写接口权威门禁仍是 BFF assertAdmin）；状态机 UI 侧映射收敛于 `src/services/transitions.ts`（3×3 组合进 tests/admin-components.test.tsx）；删除二次确认用移植的 grad .modal；settings 二维码以时间戳文件名上传后回写 qr_image_url 并尽力清理旧对象。素材移植：.gh-tabs/.gh-tab（grad-github.css）与 .t-actions/.icon-btn（grad-task-list.css，svg 居中与换行为 M4 适配偏差）。前端门禁全绿：typecheck / 21 测试（新增 10 条 admin 组件用例）/ build / SERVICE_ROLE_KEY 零匹配 / drift_lite ok=true。375px 视口与真机回归留 M5 手工门。）
 
+## M6 用户中心与发布者联系（v0.3.0 新增；依赖 M2..M4，可与 M5 剩余项并行）
+
+> 来源：2026-08-29 用户需求（两轮对齐确认）：每账号自己的二维码/微信号 + 登录登出 + 教学方式默认线上。弹层三级回退与「仅 admin」边界经用户拍板。
+
+- [ ] T-M6-1 `supabase/migrations/0002_profile_contact.sql`：profiles 新增 `wxid VARCHAR(40)` / `qr_image_url TEXT`（均可空，幂等）；经 Supabase MCP 执行并核验列结构。
+- [ ] T-M6-2 BFF：`validateProfilePatch` + `bff/src/routes/me.ts`（GET/PATCH `/api/v1/me`，assertAdmin 门禁）+ `GET /gigs/:id` 详情 join 发布者 profiles 返回 `publisher_contact`；新增测试 TC-ACCT-001/002、CT-ACCT-001、CT-GIG-003。
+- [ ] T-M6-3 前端用户中心 `/admin/account`：当前账号信息 + 退出登录按钮（补登录态登出入口）+ 自己的 wxid 编辑 + 二维码上传（`site-assets` bucket `qr/<uid>/` 路径，上传后 PATCH /me 回写）；AdminPage 加入口按钮；GigForm `contact_wxid` 默认填当前账号 wxid（可改可清空）。
+- [ ] T-M6-4 弹层三级回退：ContactModal/ContactContext 接入 GigDetail.publisher_contact，回退链 contact_wxid → 发布者资料 → site_config；PT-GIG-04 扩展为 wxid 三级 + qr 两级 oracle；TC-VIEW-007 组件测试。
+- [ ] T-M6-5 存量订正（独立确认项，先获用户明确同意）：`update gigs set mode='online' where mode='offline'`（当前 117 条），执行前后行数核对，闭环写 decisions。
+
+验收：`npm run typecheck`、`npm run test`、`npm run build`、BFF typecheck/test 全绿；drift_lite ok=true；覆盖矩阵 M6 新增条目转「已自动化」。
+
 ## M5 验收与上线（依赖 M2..M4 全部完成）
 
 > 验收方式（2026-08-29 用户 PO 指示）：除静态检查（grep 泄露门禁、代码走查、文档收口等可由 Agent 代办的项）外，不做自动化实测验收——Lighthouse 实测、真机回归、线上冒烟、限流验证等由用户手动验收，证据由用户回填。
