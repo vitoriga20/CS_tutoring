@@ -3,6 +3,7 @@
 // 前端不内联解析逻辑，避免逻辑双份与暴露规则。
 import type { District, GradeLevel, LessonMode, StudentGender } from '../types';
 import type { FieldIssue } from './validators';
+import type { ImportSuspect } from './dedupMatcher';
 
 // ── 运行时类型（不入库） ────────────────────────────────────────
 // 草稿：字段可能缺失/未解析（null/空串），与 validators.GigCreate 字段集一致
@@ -28,6 +29,9 @@ export interface GigImportRow {
   issues: FieldIssue[];
   duplicate: boolean;
   status: 'ok' | 'error';
+  // SPEC-003 扩展（specs/import-dedup/spec.md §3.1，向后兼容追加、可空，旧消费方忽略无碍）：
+  // 与库中 open 单子宽松匹配命中的疑似重复；parseImport 不填，由 preview 端点 matchSuspects 填充
+  suspect?: ImportSuspect | null;
 }
 
 // ── 常量与规则表（§5.1 唯一出处） ───────────────────────────────

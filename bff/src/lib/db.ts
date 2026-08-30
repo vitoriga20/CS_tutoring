@@ -74,6 +74,17 @@ export async function getGig(env: Bindings, id: string): Promise<Gig | null> {
   return data?.[0] ?? null;
 }
 
+// SPEC-003 疑似重复比对：全量拉取 status=open 单子（匹配与展示所需字段；不分页，
+// 量级约束 spec §8：库中 open 单子 < 5000，超出需重新评估走决策）
+export async function listOpenGigsForDedup(env: Bindings): Promise<Gig[]> {
+  const { data } = await client(env).query<Gig[]>('gigs', {
+    select: '*',
+    filters: { status: ['eq', 'open'] },
+    order: 'created_at.desc',
+  });
+  return data ?? [];
+}
+
 export async function insertGig(env: Bindings, value: GigCreate, publishedBy: string): Promise<Gig> {
   return client(env).insert<Gig>('gigs', { ...value, published_by: publishedBy });
 }

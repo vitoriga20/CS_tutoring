@@ -104,6 +104,15 @@ select.input { cursor: pointer; }
 .modal h3 { margin-bottom: 12px; padding: 0 0 8px; border-bottom: 3px solid var(--ba-yellow); font-size: 20px; color: var(--ba-ink); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 19px; }
 
+/* ---- SPEC-003 疑似重复对比弹窗字段行（上：本批行；下：库中单子；375px 单列可读） ---- */
+.compare-field { display: flex; align-items: baseline; gap: 10px; padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: var(--ba-radius-md); }
+.compare-field .compare-label { flex: 0 0 76px; font: var(--ba-fw-bold) 12px/1.4 var(--display-cjk); color: var(--muted); }
+.compare-field .compare-values { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ba-ink); }
+.compare-field .compare-values .cap { font-size: 11px; color: var(--muted); margin-right: 6px; }
+/* 命中字段黄高亮：强调黄 token，禁任意 hex */
+.compare-field.hit { background: color-mix(in srgb, var(--yellow) 14%, var(--ba-surface)); border-color: color-mix(in srgb, var(--yellow) 55%, var(--ba-surface)); }
+.suspect-summary { margin: 0 0 12px; padding: 8px 10px; border-left: 3px solid var(--ba-yellow); background: color-mix(in srgb, var(--yellow) 10%, var(--ba-surface)); font-size: 13px; color: var(--ba-ink); }
+
 /* ---- 行内操作（.icon-btn 圆钮：白底描边圆 + 悬停亮蓝） ---- */
 .t-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
 .icon-btn {

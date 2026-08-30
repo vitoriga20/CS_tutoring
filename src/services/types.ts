@@ -94,15 +94,31 @@ export interface GigImportDraft {
   contact_wxid: string | null;
 }
 
+// 疑似重复匹配信号（SPEC-003，specs/import-dedup/spec.md §5.1 信号池）
+export type MatchSignal = 'grade_level' | 'subject' | 'district' | 'hourly_rate' | 'student_gender' | 'region';
+
+// 疑似重复的库中 open 单子（SPEC-003 §3.1；匹配器在 BFF 服务端计算，裁决为前端会话态不入库）
+export interface ImportSuspect {
+  gig: Gig;
+  score: number;
+  hard: boolean;
+  matched: MatchSignal[];
+}
+
 export interface GigImportRow {
   index: number;
   draft: GigImportDraft;
   issues: FieldIssue[];
   duplicate: boolean;
   status: 'ok' | 'error';
+  // SPEC-003 追加（向后兼容可空）：duplicate=false 且与库中 open 单子宽松匹配命中时非空
+  suspect?: ImportSuspect | null;
 }
 
 export interface GigImportCommitResult {
   created: Gig[];
-  failed: { index: number; code: string; details: FieldIssue[] }[];
+  // v0.2.0（SPEC-003「更新单子」裁决）：更新成功的库中旧单
+  updated: Gig[];
+  // kind：v0.2.0 区分 insert（缺省，index=rows 数组下标）/ update（index=updates 数组下标）
+  failed: { index: number; kind?: 'insert' | 'update'; code: string; details: FieldIssue[] }[];
 }
