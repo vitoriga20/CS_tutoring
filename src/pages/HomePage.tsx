@@ -165,9 +165,9 @@ export default function HomePage() {
   return (
     <main className="page">
       <header className="m-head" data-tag="TUTORING ORDERS / STUDENT">
-        {/* BA 换皮（decisions/005）：官方生成器 logo，alpha 包围盒已裁剪（public/logo-ba.png） */}
+        {/* BA 换皮（decisions/005）：官方生成器 logo，alpha 包围盒已裁剪（public/logo-ba.png）。
+            2026-08-30 用户指示删除 h1 标题「家教单」（页面语义已由 logo 承载） */}
         <img className="m-head__logo" src="/logo-ba.png" alt="CS_tutoring" />
-        <h1>家教单</h1>
       </header>
 
       <div className="filter-bar">
