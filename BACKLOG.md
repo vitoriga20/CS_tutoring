@@ -10,7 +10,7 @@
 >
 > **优先级**: H = 高 / M = 中 / L = 低
 
-**最后更新**: 2026-08-29（工作区初始化）
+**最后更新**: 2026-08-30
 
 ---
 
@@ -20,9 +20,9 @@
 
 ## #003 Supabase 迁移执行 + BFF 联调
 - **优先级**: H
-- **现状**: 迁移 SQL 与 BFF 代码/测试已就绪并推送 GitHub（2026-08-29，decisions/004）。Supabase MCP 已配置（项目 ref zuyubuluxtafpxryqfsw）但需新会话加载；Cloudflare 侧 wrangler 已 OAuth 登录，CLI 可代办 KV/Pages/secrets/deploy。
-- **原因**: 迁移执行待 MCP 会话生效（或用户 Dashboard 手动执行 SQL）；service_role key 需从 Supabase 获取。
-- **方案**: 新会话经 MCP 执行迁移 + 建管理员 → 用户注册账号并提权 → CLI 建 KV/Pages/注入 secrets → `wrangler pages dev` 联调 → 本项闭环。
+- **现状**: 迁移 0001-0003 已全部执行（0001/0002 用户 Dashboard 执行；0003 于 2026-08-30 经 Supabase MCP 应用并只读复核通过：117/117 district、107 条 hourly_rate）。BFF 代码/测试已就绪并推送 GitHub（2026-08-29，decisions/004）。Cloudflare 侧 wrangler 已 OAuth 登录，CLI 可代办 KV/Pages/secrets/deploy。
+- **原因**: 剩余 BFF 联调（`wrangler pages dev`）、deploy 上线与生产验证未完成。
+- **方案**: CLI 建 KV/Pages/注入 secrets → `wrangler pages dev` 联调 → `wrangler pages deploy` 上线 → 生产验证 → 本项闭环。
 - **收益**: 单子发布/浏览主链路真实跑通。
 
 ## #004 移动端/微信 H5 适配基线

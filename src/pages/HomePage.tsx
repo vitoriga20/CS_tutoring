@@ -18,27 +18,78 @@ const SKELETON_COUNT = 6;
 const DISTRICTS = Object.keys(DISTRICT_LABEL) as District[];
 const GRADES = Object.keys(GRADE_LABEL) as GradeLevel[];
 const PRICES = Object.keys(PRICE_LABEL) as PriceFilter[];
+const MODES = Object.keys(MODE_LABEL) as LessonMode[];
+const SORTS = Object.keys(SORT_LABEL) as GigSort[];
+
+// 筛选持久化（v0.4.1 用户对齐 2026-08-30）：sessionStorage 保存筛选值+页码，
+// 进详情/退回来与刷新页面均保留，关闭页面重置；「更多筛选」展开状态不持久化。
+const FILTERS_KEY = 'cs-tutoring.list-filters.v1';
+
+interface StoredFilters {
+  district?: District;
+  subject?: string;
+  subjectText?: string;
+  grade?: GradeLevel;
+  mode?: LessonMode;
+  price?: PriceFilter;
+  gender?: StudentGender;
+  sort?: GigSort;
+  page?: number;
+}
+
+function readFilters(): StoredFilters | null {
+  try {
+    const raw = window.sessionStorage.getItem(FILTERS_KEY);
+    return raw ? (JSON.parse(raw) as StoredFilters) : null;
+  } catch {
+    return null;
+  }
+}
+
+// 恢复时做枚举/长度合法性校验，防止脏数据或旧格式污染状态
+const pickEnum = <T extends string>(list: readonly T[], v: unknown): T | '' =>
+  typeof v === 'string' && (list as readonly string[]).includes(v) ? (v as T) : '';
+const pickText = (v: unknown): string => (typeof v === 'string' ? v.slice(0, 40) : '');
+const pickPage = (v: unknown): number => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : 1);
 
 export default function HomePage() {
-  const [district, setDistrict] = useState<District | ''>('');
-  const [subject, setSubject] = useState('');
-  const [subjectText, setSubjectText] = useState('');
-  const [grade, setGrade] = useState<GradeLevel | ''>('');
-  const [mode, setMode] = useState<LessonMode | ''>('');
-  const [price, setPrice] = useState<PriceFilter | ''>('');
-  const [gender, setGender] = useState<StudentGender | ''>('');
-  const [sort, setSort] = useState<GigSort>('newest');
+  // 挂载时从 sessionStorage 恢复筛选+页码（无历史时 saved 为 null，各字段回默认值）
+  const [saved] = useState(readFilters);
+  const [district, setDistrict] = useState<District | ''>(() => pickEnum(DISTRICTS, saved?.district));
+  const [subject, setSubject] = useState(() => pickText(saved?.subject));
+  const [subjectText, setSubjectText] = useState(() => pickText(saved?.subjectText) || pickText(saved?.subject));
+  const [grade, setGrade] = useState<GradeLevel | ''>(() => pickEnum(GRADES, saved?.grade));
+  const [mode, setMode] = useState<LessonMode | ''>(() => pickEnum(MODES, saved?.mode));
+  const [price, setPrice] = useState<PriceFilter | ''>(() => pickEnum(PRICES, saved?.price));
+  const [gender, setGender] = useState<StudentGender | ''>(() => pickEnum(['male', 'female'], saved?.gender));
+  const [sort, setSort] = useState<GigSort>(() => pickEnum(SORTS, saved?.sort) || 'newest');
   const [moreOpen, setMoreOpen] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => pickPage(saved?.page));
 
   // 科目自定义输入 350ms 防抖后再发起查询；点 chip 立即生效
+  // 仅在输入值确实变化时重置页码（恢复 sessionStorage 时 subjectText===subject，不重置）
   useEffect(() => {
     const t = window.setTimeout(() => {
-      setSubject(subjectText.trim());
-      setPage(1);
+      const v = subjectText.trim();
+      if (v !== subject) {
+        setSubject(v);
+        setPage(1);
+      }
     }, 350);
     return () => window.clearTimeout(t);
-  }, [subjectText]);
+  }, [subjectText, subject]);
+
+  // 筛选+页码变化即写入 sessionStorage（含 subjectText 输入态，供下次挂载恢复输入框）
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        FILTERS_KEY,
+        JSON.stringify({ district, subject, subjectText, grade, mode, price, gender, sort, page }),
+      );
+    } catch {
+      // 隐私模式等写入被拒时静默忽略：仅本次会话不持久化，功能不受影响
+    }
+  }, [district, subject, subjectText, grade, mode, price, gender, sort, page]);
 
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: ['gigs', { district, subject, grade, mode, price, gender, sort, page }],

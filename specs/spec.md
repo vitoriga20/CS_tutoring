@@ -88,6 +88,12 @@
     那么 响应状态码是 200
     且 data 中每条记录满足 student_gender 为 "female"（student_gender 为 unknown 的旧单不会命中 male/female 筛选）
 
+  场景: 筛选状态持久化（sessionStorage，v0.4.1）
+    假设 访客在首页已选择区县筛选并翻页
+    当 访客进入单子详情页再返回首页（或刷新页面）
+    那么 首页筛选值与页码保持不变
+    且 访客关闭页面后再次打开首页，筛选回到默认值
+
   场景: 首页空态
     假设 数据库中不存在 status 为 "open" 的单子
     当 访客打开首页 "/"
@@ -531,6 +537,7 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | Gherkin: 按价格档筛选（NULL 不命中） | REQ-VIEW-09 | 验收测试 | TC-VIEW-009 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
 | Gherkin: 按时薪排序（NULL 殿后） | REQ-VIEW-10 | 验收测试 | TC-VIEW-010 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
 | Gherkin: 按学员性别筛选 | REQ-VIEW-11 | 验收测试 | TC-VIEW-011 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
+| Gherkin: 筛选持久化 | REQ-VIEW-12 | 验收测试 | TC-VIEW-012 | 已自动化（tests/view-components.test.tsx，v0.4.1） |
 | Gherkin: 不存在的单子 | REQ-VIEW-06 | 验收测试 | TC-VIEW-006 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 发布成功 | REQ-ADMIN-01 | 验收测试 | TC-ADMIN-001 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 缺 region 被拒绝 | REQ-ADMIN-02 | 验收测试 | TC-ADMIN-002 | 已自动化（bff/tests 路由+校验器双层） |
@@ -601,3 +608,4 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | 2026-08-29 | v0.3.2 | 发布表单「授课模式」新建默认值改为「线下」；存量 117 条 mode 由 online 回滚为 offline（用户确认 v0.3.0 轮对「以后默认为线下」的解读有误并已纠正；编辑表单不受影响，仍按单子现有值填充） | 98cba5b |
 | 2026-08-29 | v0.3.3 | 联系弹层操作区拆分（用户 PO 指示）：「保存二维码」+「复制微信号」双按钮并排。保存 = fetch blob 触发浏览器下载（跨域 URL 直接挂 download 会被忽略），微信 X5 拦截时降级新窗打开原图供长按；H5 无一键存相册能力（JS-SDK v1 排除）。数据侧同日完成：小助手账号（3435718204）资料录入 + 117 条存量单 published_by 归属小助手 | （待提交） |
 | 2026-08-30 | v0.4.0 | 筛选增强（用户三轮对齐确认）: gigs 新增 `district` 枚举列（8 成员：望城/开福/岳麓/芙蓉/天心/雨花/长沙县/其他）与 `hourly_rate` 数值列（元/小时，可空），`region` 语义收窄为「详细地点」文本不变更约束；列表接口新增 `district`/`price` 档位/`student_gender`/`sort` 四个筛选参数（price 按 hourly_rate 过滤且 NULL 不命中，sort 支持 newest \| rate_desc 且 NULL 殿后）；POST/PATCH 契约同步 district 必填 + hourly_rate 可空；存量 117 单清洗规则见 §4.1.1（region 前缀解析 + rate 宽松正则，9 条无前缀人工归类）；前端筛选区改 BA chip 点选 + 展开区 | （待提交） |
+| 2026-08-30 | v0.4.1 | 筛选持久化修复（用户报告 + 两轮对齐确认）: 首页筛选值与页码经 sessionStorage 持久化（进入详情返回/刷新页面均保留，关闭页面重置；「更多筛选」展开状态不持久化）；科目输入防抖仅在值确实变化时重置页码 | （待提交） |

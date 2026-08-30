@@ -183,3 +183,36 @@ describe('TC-VIEW-005 已匹配单子详情', () => {
     expect(btn.disabled).toBe(true);
   });
 });
+
+describe('TC-VIEW-012 首页筛选持久化（v0.4.1 sessionStorage）', () => {
+  it('筛选+页码写入 sessionStorage，卸载重挂后恢复（等价进详情返回）', async () => {
+    window.sessionStorage.clear();
+    // meta.page 跟随请求页码，才能验证翻页后恢复到第 2 页
+    apiGetMock.mockImplementation(async (_url, params) => ({
+      data: [makeGig()],
+      meta: { page: Number(params?.page ?? 1), pageSize: 20, total: 21 },
+    }));
+
+    const first = withProviders(<HomePage />);
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalled());
+
+    // 选区域「岳麓区」+ 翻到第 2 页
+    fireEvent.click(screen.getByRole('button', { name: '岳麓区' }));
+    await waitFor(() =>
+      expect(apiGetMock).toHaveBeenLastCalledWith('/gigs', expect.objectContaining({ district: 'yuelu' })),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /下一页/ }));
+    await waitFor(() => expect(screen.getByText(/第 2 \/ 2 页/)).toBeTruthy());
+
+    // 卸载（等价路由离开列表页进入详情）
+    first.unmount();
+
+    // 重新挂载（等价返回列表页）：筛选与页码应从 sessionStorage 恢复
+    withProviders(<HomePage />);
+    await waitFor(() => expect(screen.getByRole('button', { name: '岳麓区' }).classList.contains('is-on')).toBe(true));
+    await waitFor(() =>
+      expect(apiGetMock).toHaveBeenLastCalledWith('/gigs', expect.objectContaining({ district: 'yuelu', page: 2 })),
+    );
+    expect(screen.getByText(/第 2 \/ 2 页/)).toBeTruthy();
+  });
+});
