@@ -10,3 +10,5 @@
 | 006-v1-filter-enhancement.md | v1 | 筛选、district、hourly_rate、价格档、排序、chip、spec-v0.4.0 | 活跃 | 前端、数据层、后端 |
 | 007-v1-filter-persistence.md | v1 | 筛选持久化、sessionStorage、页码、spec-v0.4.1、TC-VIEW-012 | 活跃 | 前端 |
 | 008-v1-admin-import-alignment.md | v1 | 导入、批量、解析、自动匹配、字段、admin、纯文本、规则正则、预览确认入库 | 已实现（SPEC-002 v0.1.2，自动化验收全绿；真机冒烟/375px 待用户） | 后端、数据层、前端 |
+| 009-import-dedup-alignment.md | v1 | 疑似重复、宽松匹配、信号池、编号硬信号、裁决、弹窗队列、SPEC-003 | 已实现（SPEC-003 v0.1.1，自动化验收全绿：BFF 188/前端 43；真机冒烟/375px 待用户） | 后端、前端 |
+| 010-import-dedup-reimport.md | v1 | 重复导入、更新旧单、三裁决、updates、created_at 刷新、null 不覆盖、SPEC-003-v0.2.0 | 已实现（SPEC-003 v0.2.0，自动化验收全绿；真机冒烟/375px 待用户） | 后端、前端 |

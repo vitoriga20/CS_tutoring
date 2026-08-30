@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: CS_tutoring BFF API
-  version: v0.5.0
-  description: 家教单发布与接单平台 BFF。唯一事实来源，与 specs/spec.md 第 3/6 部分同源。错误响应统一 {error, code, detail?}。v0.5.0 新增批量导入两端点（SPEC-002，specs/gig-import/spec.md §3）。
+  version: v0.7.0
+  description: 家教单发布与接单平台 BFF。唯一事实来源，与 specs/spec.md 第 3/6 部分同源。错误响应统一 {error, code, detail?}。v0.5.0 新增批量导入两端点（SPEC-002，specs/gig-import/spec.md §3）；v0.6.0 preview 响应 GigImportRow 增补可空 suspect（SPEC-003 v0.1.1 导入疑似重复确认，specs/import-dedup/spec.md §3.1）；v0.7.0 commit 请求增补 updates（SPEC-003 v0.2.0「重复导入」= 更新旧单内容，响应增 updated、failed 增 kind）。
 servers:
   - url: https://cstutoring.pages.dev
     description: 生产（Cloudflare Pages 同域）
@@ -247,7 +247,7 @@ paths:
             example: { raw_text: '8.26长沙家教网10034639号家教\n学员地址：北部湾\n辅导科目：数学\n学员情况：初二、女' }
       responses:
         '200':
-          description: 解析预览；行级 issues 标红、duplicate 标记（GigImportRow）
+          description: 解析预览；行级 issues 标红、duplicate 标记、suspect 疑似重复（GigImportRow；suspect 仅对库中 open 单子宽松匹配命中，SPEC-003）
           content:
             application/json:
               schema:
@@ -268,7 +268,7 @@ paths:
   /api/v1/gigs/import:
     post:
       tags: [gigs]
-      summary: 批量写入家教单（admin；逐元素重校验，failed 不插入）
+      summary: 批量写入家教单（admin；逐元素重校验，failed 不写入；v0.2.0 支持「重复导入」更新旧单）
       operationId: commitGigImport
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -281,11 +281,20 @@ paths:
               properties:
                 rows:
                   type: array
-                  minItems: 1
                   items: { $ref: '#/components/schemas/GigCreate' }
+                  description: 插入行（裁决「不重复」）；可为空数组（整批均为「重复导入」时）
+                updates:
+                  type: array
+                  description: 更新行（v0.2.0，裁决「重复导入」）：不插入新单，把 id 指向的库中旧单内容更新为 values；created_at 刷新为提交时刻、values 中为 null 的字段不覆盖旧值、status/published_by 不变；逐元素与插入同级权威校验
+                  items:
+                    type: object
+                    required: [id, values]
+                    properties:
+                      id: { type: string, format: uuid, description: 目标库中旧单 id（该行 suspect.gig.id） }
+                      values: { $ref: '#/components/schemas/GigCreate' }
       responses:
         '201':
-          description: 合法行以 status=open、published_by=当前 admin 写入；failed 含批次内 index 便于前端定位
+          description: rows 合法行以 status=open、published_by=当前 admin 写入 created；updates 合法项更新旧单入 updated；failed 含批次内 index（rows → rows 数组下标；updates → updates 数组下标，kind=update 区分）便于前端定位
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GigImportCommit' }
@@ -524,17 +533,39 @@ components:
           items: { $ref: '#/components/schemas/FieldIssue' }
         duplicate: { type: boolean }
         status: { type: string, enum: [ok, error] }
+        suspect:
+          type: [object, 'null']
+          description: 疑似重复的库中 open 单子（SPEC-003 追加字段，向后兼容可空）；仅当该行 duplicate=false 且与库中 open 单子宽松匹配命中时非空，否则为 null；裁决为前端会话态，不回传本接口
+          $ref: '#/components/schemas/ImportSuspect'
       description: status=error ⇔ issues 非空；duplicate=true 的行不计入可导入集合（specs/gig-import/spec.md §3.1）。
+    ImportSuspect:
+      type: object
+      description: 疑似重复的库中 open 单子（specs/import-dedup/spec.md §3.1）；gig 为单条最像的库中 open 单子（候选取 score 最高、同分取 created_at 最新）；hard 为编号硬信号（独立于 6 项信号池）。
+      required: [gig, score, hard, matched]
+      properties:
+        gig: { $ref: '#/components/schemas/Gig' }
+        score: { type: integer, minimum: 0, maximum: 6 }
+        hard: { type: boolean }
+        matched:
+          type: array
+          description: 命中信号名列表，长度 == score；hard=true 时 matched 与 score 按信号池如实填写（硬信号不占 6 项）
+          items:
+            type: string
+            enum: [grade_level, subject, district, hourly_rate, student_gender, region]
     GigImportCommit:
       type: object
       required: [data]
       properties:
         data:
           type: object
-          required: [created, failed]
+          required: [created, updated, failed]
           properties:
             created:
               type: array
+              items: { $ref: '#/components/schemas/Gig' }
+            updated:
+              type: array
+              description: v0.2.0「重复导入」更新成功的库中旧单（内容已替换为新行内容）
               items: { $ref: '#/components/schemas/Gig' }
             failed:
               type: array
@@ -542,8 +573,9 @@ components:
                 type: object
                 required: [index, code, details]
                 properties:
-                  index: { type: integer, minimum: 0 }
-                  code: { type: string, enum: [VALIDATION_ERROR] }
+                  index: { type: integer, minimum: 0, description: kind=insert → rows 数组下标；kind=update → updates 数组下标 }
+                  kind: { type: string, enum: [insert, update], default: insert, description: v0.2.0：区分插入行与更新行失败，缺省 insert（向后兼容） }
+                  code: { type: string, enum: [VALIDATION_ERROR, GIG_NOT_FOUND] }
                   details:
                     type: array
                     items: { $ref: '#/components/schemas/FieldIssue' }
