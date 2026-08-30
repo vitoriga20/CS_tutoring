@@ -33,7 +33,7 @@
 | `调研报告.md` | 需求背景、架构结论、字段/路由草案、已确认决策 |
 | `BACKLOG.md` | 排期看板：只放未完成事项 |
 | `decisions/_INDEX.md` | 决策索引（P2：先按关键词定位，再读单文件） |
-| `specs/` | 待创建：根级三件套 spec.md + tasks.md + checklist.md |
+| `specs/` | 待创建：三件套 spec.md + tasks.md + checklist.md放specs目录中的子文件夹下，自己创建 |
 | 审美素材库（外部，只读） | `D:\KB\项目案例\01-软件系统\前端组件\BA\`：根 `tokens.css` 是令牌唯一源，`demo2/DESIGN.md` 是工具类产品实战层（组件组合 + 校验清单）；根 `DESIGN.md` 是体系层 |
 
 活跃 Spec：SPEC-001（`specs/spec.md`，状态「已批准」v0.2.0；三件套 + openapi.yaml + 3 个实体 schema + self-check 均在 `specs/`，实施按 `specs/tasks.md` 里程碑推进）；SPEC-002 模块级补充（`specs/gig-import/`，状态「已实现」v0.1.4，管理员批量导入/自动生成家教单，实施按 `specs/gig-import/tasks.md`，对齐稿 decisions/008；真机冒烟/375px 人工门待用户，见 checklist §4/§6）。
