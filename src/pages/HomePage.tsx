@@ -34,6 +34,9 @@ interface StoredFilters {
   price?: PriceFilter;
   gender?: StudentGender;
   sort?: GigSort;
+  // v0.5.0 标题搜索：q=实际生效搜索词（trim 后），qText=输入框文本（随持久化恢复输入态）
+  q?: string;
+  qText?: string;
   page?: number;
 }
 
@@ -50,6 +53,8 @@ function readFilters(): StoredFilters | null {
 const pickEnum = <T extends string>(list: readonly T[], v: unknown): T | '' =>
   typeof v === 'string' && (list as readonly string[]).includes(v) ? (v as T) : '';
 const pickText = (v: unknown): string => (typeof v === 'string' ? v.slice(0, 40) : '');
+// 搜索词上限 60（与 title 列约束一致，spec §3 q 契约）；复用 pickText 截断思路
+const pickQText = (v: unknown): string => (typeof v === 'string' ? v.slice(0, 60) : '');
 const pickPage = (v: unknown): number => (typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : 1);
 
 export default function HomePage() {
@@ -65,6 +70,9 @@ export default function HomePage() {
   const [sort, setSort] = useState<GigSort>(() => pickEnum(SORTS, saved?.sort) || 'newest');
   const [moreOpen, setMoreOpen] = useState(false);
   const [page, setPage] = useState(() => pickPage(saved?.page));
+  // v0.5.0 标题搜索：qText=输入框文本（含未生效输入），q=防抖后实际生效的搜索词
+  const [q, setQ] = useState(() => pickQText(saved?.q));
+  const [qText, setQText] = useState(() => pickQText(saved?.qText) || pickQText(saved?.q));
 
   // 科目自定义输入 350ms 防抖后再发起查询；点 chip 立即生效
   // 仅在输入值确实变化时重置页码（恢复 sessionStorage 时 subjectText===subject，不重置）
@@ -79,24 +87,38 @@ export default function HomePage() {
     return () => window.clearTimeout(t);
   }, [subjectText, subject]);
 
-  // 筛选+页码变化即写入 sessionStorage（含 subjectText 输入态，供下次挂载恢复输入框）
+  // 搜索词 350ms 防抖即时生效（v0.5.0，复用科目输入防抖模式）：
+  // 仅在 trim 后值确实变化时重置页码（恢复 sessionStorage 时 qText.trim()===q，不重置）
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const v = qText.trim();
+      if (v !== q) {
+        setQ(v);
+        setPage(1);
+      }
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [qText, q]);
+
+  // 筛选+页码变化即写入 sessionStorage（含 subjectText/qText 输入态，供下次挂载恢复输入框）
   useEffect(() => {
     try {
       window.sessionStorage.setItem(
         FILTERS_KEY,
-        JSON.stringify({ district, subject, subjectText, grade, mode, price, gender, sort, page }),
+        JSON.stringify({ district, subject, subjectText, grade, mode, price, gender, sort, q, qText, page }),
       );
     } catch {
       // 隐私模式等写入被拒时静默忽略：仅本次会话不持久化，功能不受影响
     }
-  }, [district, subject, subjectText, grade, mode, price, gender, sort, page]);
+  }, [district, subject, subjectText, grade, mode, price, gender, sort, q, qText, page]);
 
   const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ['gigs', { district, subject, grade, mode, price, gender, sort, page }],
+    queryKey: ['gigs', { district, subject, grade, mode, price, gender, sort, q, page }],
     queryFn: () =>
       apiGet<Page<Gig>>('/gigs', {
         district: district || undefined,
         subject: subject || undefined,
+        q: q || undefined,
         grade_level: grade || undefined,
         mode: mode || undefined,
         price: price || undefined,
@@ -149,6 +171,17 @@ export default function HomePage() {
       </header>
 
       <div className="filter-bar">
+        {/* v0.5.0 标题搜索：常驻搜索框（350ms 防抖即时生效，无需回车；标题即单号） */}
+        <input
+          className="input filter-search"
+          type="search"
+          aria-label="搜单号 / 标题关键词"
+          placeholder="搜单号 / 标题关键词"
+          maxLength={60}
+          value={qText}
+          onChange={(e) => setQText(e.target.value)}
+        />
+
         <div className="chip-row" role="group" aria-label="按区县筛选">
           <span className="chip-row__label">区域</span>
           {DISTRICTS.map((d) => (
@@ -247,7 +280,8 @@ export default function HomePage() {
       ) : !data || data.data.length === 0 ? (
         <div className="state-box">
           <Inbox size={28} aria-hidden="true" />
-          <p>暂时没有新单子，过几天再来看看</p>
+          {/* v0.5.0：搜索激活且无结果时用搜索空态文案，与默认空态区分；清空搜索词恢复默认空态 */}
+          <p>{q ? '没有找到相关单子，换个关键词试试' : '暂时没有新单子，过几天再来看看'}</p>
         </div>
       ) : (
         <>

@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
-// TC-VIEW-003/004/005/007 组件级验收（Gherkin：spec.md §2.1；依赖：@testing-library/react + happy-dom，
-// 2026-08-29 经用户确认新增）。用例 ID 与 specs/spec.md 第 7 部分覆盖矩阵逐字一致。
+// TC-VIEW-003/004/005/007/012/013/014/015 组件级验收（Gherkin：spec.md §2.1；依赖：
+// @testing-library/react + happy-dom，2026-08-29 经用户确认新增）。用例 ID 与
+// specs/spec.md 第 7 部分覆盖矩阵逐字一致。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -82,6 +83,8 @@ function withProviders(ui: ReactElement, opts: { route?: string; routePath?: str
 
 beforeEach(() => {
   apiGetMock.mockReset();
+  // 持久化跨用例污染防护：每个用例独立 sessionStorage（搜索词/筛选不串用例）
+  window.sessionStorage.clear();
 });
 afterEach(cleanup);
 
@@ -214,5 +217,81 @@ describe('TC-VIEW-012 首页筛选持久化（v0.4.1 sessionStorage）', () => {
       expect(apiGetMock).toHaveBeenLastCalledWith('/gigs', expect.objectContaining({ district: 'yuelu', page: 2 })),
     );
     expect(screen.getByText(/第 2 \/ 2 页/)).toBeTruthy();
+  });
+});
+
+describe('TC-VIEW-013 首页标题搜索（v0.5.0）', () => {
+  it('输入搜索词 350ms 防抖后请求携带 q；与年级 chip AND 叠加', async () => {
+    apiGetMock.mockResolvedValue({
+      data: [makeGig({ title: '高二数学一对一' })],
+      meta: { page: 1, pageSize: 20, total: 1 },
+    });
+    withProviders(<HomePage />);
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalled());
+
+    // 输入「数学」：防抖生效后请求携带 q=数学
+    const box = screen.getByLabelText(/搜单号/) as HTMLInputElement;
+    fireEvent.change(box, { target: { value: '数学' } });
+    await waitFor(() => expect(apiGetMock).toHaveBeenLastCalledWith('/gigs', expect.objectContaining({ q: '数学' })));
+
+    // 与年级 chip「高中」叠加：请求同时携带 q 与 grade_level（AND）
+    fireEvent.click(screen.getByRole('button', { name: '高中' }));
+    await waitFor(() =>
+      expect(apiGetMock).toHaveBeenLastCalledWith(
+        '/gigs',
+        expect.objectContaining({ q: '数学', grade_level: 'senior' }),
+      ),
+    );
+  });
+});
+
+describe('TC-VIEW-014 搜索无结果空态（v0.5.0）', () => {
+  it('搜索无结果显示搜索空态文案；清空搜索词恢复默认空态', async () => {
+    apiGetMock.mockResolvedValue(EMPTY_PAGE);
+    withProviders(<HomePage />);
+    await waitFor(() => expect(screen.getByText('暂时没有新单子，过几天再来看看')).toBeTruthy());
+
+    const box = screen.getByLabelText(/搜单号/) as HTMLInputElement;
+    fireEvent.change(box, { target: { value: '法语' } });
+    await waitFor(() => expect(screen.getByText('没有找到相关单子，换个关键词试试')).toBeTruthy());
+    expect(screen.queryByText('暂时没有新单子，过几天再来看看')).toBeNull();
+
+    // 清空搜索词后恢复默认空态
+    fireEvent.change(box, { target: { value: '' } });
+    await waitFor(() => expect(screen.getByText('暂时没有新单子，过几天再来看看')).toBeTruthy());
+    expect(screen.queryByText('没有找到相关单子，换个关键词试试')).toBeNull();
+  });
+});
+
+describe('TC-VIEW-015 搜索词随筛选持久化（v0.5.0）', () => {
+  it('搜索词+页码写入 sessionStorage，卸载重挂后搜索框与请求均恢复', async () => {
+    window.sessionStorage.clear();
+    apiGetMock.mockImplementation(async (_url, params) => ({
+      data: [makeGig({ title: '高二数学一对一' })],
+      meta: { page: Number(params?.page ?? 1), pageSize: 20, total: 21 },
+    }));
+
+    const first = withProviders(<HomePage />);
+    await waitFor(() => expect(apiGetMock).toHaveBeenCalled());
+
+    // 输入搜索词（防抖后 q 生效且回第 1 页）再翻到第 2 页
+    const box = screen.getByLabelText(/搜单号/) as HTMLInputElement;
+    fireEvent.change(box, { target: { value: '数学' } });
+    await waitFor(() =>
+      expect(apiGetMock).toHaveBeenLastCalledWith('/gigs', expect.objectContaining({ q: '数学', page: 1 })),
+    );
+    fireEvent.click(screen.getByRole('button', { name: /下一页/ }));
+    await waitFor(() => expect(screen.getByText(/第 2 \/ 2 页/)).toBeTruthy());
+
+    // 卸载（等价路由离开列表页进入详情）
+    first.unmount();
+
+    // 重新挂载（等价返回列表页）：搜索词、页码、请求参数应一并恢复
+    withProviders(<HomePage />);
+    await waitFor(() =>
+      expect(apiGetMock).toHaveBeenLastCalledWith('/gigs', expect.objectContaining({ q: '数学', page: 2 })),
+    );
+    await waitFor(() => expect((screen.getByLabelText(/搜单号/) as HTMLInputElement).value).toBe('数学'));
+    await waitFor(() => expect(screen.getByText(/第 2 \/ 2 页/)).toBeTruthy());
   });
 });

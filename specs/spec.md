@@ -1,7 +1,7 @@
 # SPEC-001: 家教单发布与接单（CS_tutoring 根级规范）
 
-> **规范状态:** 待批准（2026-08-30，v0.4.0 修订稿待用户确认；v0.2.0 及此前已批准）
-> **版本:** v0.4.0
+> **规范状态:** 已批准（2026-08-30，v0.5.0；M7 标题搜索已实施，前端 34 用例 + BFF 140 用例全绿；v0.4.1 及此前闭环见 decisions/006、007）
+> **版本:** v0.5.0
 > **负责人:** PO/TL/QA: 用户（单人项目）
 > **代码包路径:** `src/`（React 前端）、`bff/src/`（Hono BFF）、`functions/api/[[route]].js`（Pages Function 产物）、`supabase/migrations/`（数据库迁移）
 > **最后修改:** 见 Git 提交记录（仓库尚无提交）
@@ -46,7 +46,7 @@
 ```gherkin
 功能: 浏览家教单
   作为一名想接单的大学生
-  我想要浏览和筛选家教单
+  我想要浏览、筛选和搜索家教单
   以便找到合适的单子并联系管理员
 
   背景:
@@ -93,6 +93,30 @@
     当 访客进入单子详情页再返回首页（或刷新页面）
     那么 首页筛选值与页码保持不变
     且 访客关闭页面后再次打开首页，筛选回到默认值
+
+  场景: 首页按标题搜索（单号搜索，v0.5.0）
+    假设 数据库中存在 title 为 "高二数学一对一" 与 "初三英语辅导" 的 open 单子
+    当 访客在首页搜索框输入 "数学" 并停止输入（防抖自动生效，无需回车或按钮）
+    那么 列表请求携带 q 参数，且 data 中每条记录的 title 包含 "数学"（不区分大小写）
+    且 meta.total 为命中条数
+
+  场景: 搜索与其他筛选叠加（AND）
+    假设 数据库中存在 title 含 "数学" 的 open 单子 2 条，其中 1 条 grade_level 为 "senior"
+    当 访客输入搜索词 "数学" 并选择年级 chip "高中"
+    那么 列表只显示同时满足 title 包含 "数学" 且 grade_level 为 "senior" 的单子
+
+  场景: 搜索无结果的空态
+    假设 数据库中不存在 title 包含 "法语" 的 open 单子
+    当 访客在搜索框输入 "法语"
+    那么 页面显示空态文案 "没有找到相关单子，换个关键词试试"
+    且 页面不显示默认空态文案 "暂时没有新单子，过几天再来看看"
+    且 访客清空搜索词后恢复默认列表
+
+  场景: 搜索词随筛选一并持久化（v0.5.0）
+    假设 访客在首页输入搜索词 "数学" 并翻页
+    当 访客进入单子详情页再返回首页（或刷新页面）
+    那么 搜索词与筛选值、页码保持不变
+    且 访客关闭页面后再次打开首页，搜索词回到空
 
   场景: 首页空态
     假设 数据库中不存在 status 为 "open" 的单子
@@ -232,6 +256,18 @@
     当 我向 DELETE /api/v1/gigs/G3 发送请求
     那么 响应状态码是 204
     且 再向 GET /api/v1/gigs/G3 发送请求时返回 404
+
+  场景: 管理列表按标题搜索（v0.5.0）
+    假设 已登录且 profiles.role 为 "admin"
+    且 数据库中存在 title 为 "高二数学一对一" 的 open 单子与 title 为 "初三英语辅导" 的 matched 单子
+    当 我在 /admin 列表搜索框输入 "数学"（状态 Tab 停留在 "全部"）
+    那么 列表请求携带 q 参数，且只显示 title 包含 "数学" 的单子
+    且 我切换状态 Tab 到 "已匹配" 后，列表只显示同时满足 title 包含 "数学" 且 status 为 "matched" 的单子
+
+  场景: 管理列表搜索词不持久化
+    假设 我在 /admin 列表输入了搜索词 "数学"
+    当 我离开 /admin 再返回（或刷新页面）
+    那么 搜索框为空，列表请求不携带 q 参数
 ```
 
 ### 2.3 功能: 用户中心（需登录且 role=admin）
@@ -316,6 +352,7 @@
 - 响应外壳: 单资源 `{data}`；列表 `{data, meta}`；错误 `{error, code, detail?}`。
 - `status` 查询参数取值 `open | matched | closed | all`，缺省 `open`；非法取值返回 422。
 - `subject` 筛选为 trim 后不区分大小写的精确匹配（`lower(subject) = lower($subject)`）；筛选值含 `*` 或 `%` 时返回 422 `VALIDATION_ERROR`（通配符不作为筛选语法，v0.2.1 补钉）。
+- `q` 标题搜索参数（v0.5.0）: trim 后空串视为未提供；非空时对 `title` 做不区分大小写的包含匹配（`title ilike '%q%'` 语义；标题即单号，仅匹配标题不扫其他字段）；与其他筛选参数为 AND 叠加；值含 `*` 或 `%` 时返回 422 `VALIDATION_ERROR`（通配符不作为搜索语法，沿 subject 补钉先例）；trim 后长度 1..60，超长 422（与 title 列约束一致）。
 - 列表筛选参数（v0.4.0）: `district` 取值 `wangcheng | kaifu | yuelu | furong | tianxin | yuhua | changsha_county | other`；`price` 档位取值 `le50 | 50-80 | 80-120 | 120-200 | gt200`（按 `hourly_rate` 过滤，NULL 不命中任何档位）；`student_gender` 取值 `male | female`（unknown 表示未标注，不可作为筛选值）；`sort` 取值 `newest`（缺省，created_at desc）| `rate_desc`（hourly_rate 非空按其降序在前，NULL 殿后，殿后段保持 created_at desc）。任一非法取值返回 422 `VALIDATION_ERROR`。
 - `Gig` 响应与 `GigCreate`/`GigUpdate` 请求体新增 `district`（创建必填，枚举）与 `hourly_rate`（可空整数 0..10000，元/小时）；`region` 语义收窄为「详细地点」自由文本，约束不变。
 - 请求体中的未知字段一律忽略，不报错。
@@ -538,6 +575,9 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | Gherkin: 按时薪排序（NULL 殿后） | REQ-VIEW-10 | 验收测试 | TC-VIEW-010 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
 | Gherkin: 按学员性别筛选 | REQ-VIEW-11 | 验收测试 | TC-VIEW-011 | 已自动化（bff/tests/gigs-route.test.ts，v0.4.0） |
 | Gherkin: 筛选持久化 | REQ-VIEW-12 | 验收测试 | TC-VIEW-012 | 已自动化（tests/view-components.test.tsx，v0.4.1） |
+| Gherkin: 首页标题搜索（命中/大小写/AND 叠加） | REQ-VIEW-13 | 验收测试 | TC-VIEW-013 | 已自动化（bff/tests/gigs-route.test.ts 路由层 + tests/view-components.test.tsx 组件层，v0.5.0） |
+| Gherkin: 搜索无结果空态 | REQ-VIEW-14 | 验收测试 | TC-VIEW-014 | 已自动化（tests/view-components.test.tsx，v0.5.0） |
+| Gherkin: 搜索词随筛选持久化 | REQ-VIEW-15 | 验收测试 | TC-VIEW-015 | 已自动化（tests/view-components.test.tsx，v0.5.0） |
 | Gherkin: 不存在的单子 | REQ-VIEW-06 | 验收测试 | TC-VIEW-006 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 发布成功 | REQ-ADMIN-01 | 验收测试 | TC-ADMIN-001 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 缺 region 被拒绝 | REQ-ADMIN-02 | 验收测试 | TC-ADMIN-002 | 已自动化（bff/tests 路由+校验器双层） |
@@ -546,6 +586,7 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | Gherkin: 同值重申视为无变化 + 大纲: 非法迁移（closed→matched） | REQ-ADMIN-05 | 验收测试 | TC-ADMIN-005 | 已自动化（bff/tests 路由+PT-GIG-01 全组合） |
 | Gherkin: 401 / 403 | REQ-ADMIN-06 | 契约测试 | CT-ADMIN-001 | 已自动化（bff/tests/gigs-route.test.ts） |
 | Gherkin: 删除 204 | REQ-ADMIN-07 | 验收测试 | TC-ADMIN-006 | 已自动化（bff/tests/gigs-route.test.ts） |
+| Gherkin: 管理列表标题搜索（Tab 叠加 + 不持久化） | REQ-ADMIN-08 | 验收测试 | TC-ADMIN-007 | 已自动化（tests/admin-components.test.tsx，v0.5.0） |
 | OpenAPI: GET /gigs 200 形状 | REQ-CT-01 | 契约测试 | CT-GIG-001 | 已自动化（bff/tests/gigs-route.test.ts） |
 | OpenAPI: 429 与 Retry-After | REQ-CT-02 | 契约测试 | CT-GIG-002 | 未自动化（期限: M5 里程碑内，需线上 KV） |
 | Properties: P-GIG-01 | REQ-PT-01 | 属性测试 | PT-GIG-01 | 已自动化（bff/tests/validators.test.ts 3×3 全组合） |
@@ -557,6 +598,7 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | Gherkin: 用户中心 非法资料 422 | REQ-ACCT-02 | 验收测试 | TC-ACCT-002 | 待自动化（M6） |
 | Gherkin: 用户中心 401/403 | REQ-ACCT-03 | 契约测试 | CT-ACCT-001 | 待自动化（M6） |
 | OpenAPI: GET /gigs/:id 含 publisher_contact | REQ-CT-03 | 契约测试 | CT-GIG-003 | 待自动化（M6） |
+| OpenAPI: q 通配符/超长 422、空串忽略 | REQ-CT-04 | 契约测试 | CT-GIG-004 | 已自动化（bff/tests/gigs-route.test.ts，v0.5.0） |
 
 一致性保障: 测试文件存 `tests/`，用例 ID 与本矩阵逐字一致；全部转「已自动化」前不允许把 M5 标记完成。
 
@@ -609,3 +651,4 @@ P-GIG-04: ∀ gig, ∀ publisher(gig):
 | 2026-08-29 | v0.3.3 | 联系弹层操作区拆分（用户 PO 指示）：「保存二维码」+「复制微信号」双按钮并排。保存 = fetch blob 触发浏览器下载（跨域 URL 直接挂 download 会被忽略），微信 X5 拦截时降级新窗打开原图供长按；H5 无一键存相册能力（JS-SDK v1 排除）。数据侧同日完成：小助手账号（3435718204）资料录入 + 117 条存量单 published_by 归属小助手 | （待提交） |
 | 2026-08-30 | v0.4.0 | 筛选增强（用户三轮对齐确认）: gigs 新增 `district` 枚举列（8 成员：望城/开福/岳麓/芙蓉/天心/雨花/长沙县/其他）与 `hourly_rate` 数值列（元/小时，可空），`region` 语义收窄为「详细地点」文本不变更约束；列表接口新增 `district`/`price` 档位/`student_gender`/`sort` 四个筛选参数（price 按 hourly_rate 过滤且 NULL 不命中，sort 支持 newest \| rate_desc 且 NULL 殿后）；POST/PATCH 契约同步 district 必填 + hourly_rate 可空；存量 117 单清洗规则见 §4.1.1（region 前缀解析 + rate 宽松正则，9 条无前缀人工归类）；前端筛选区改 BA chip 点选 + 展开区 | （待提交） |
 | 2026-08-30 | v0.4.1 | 筛选持久化修复（用户报告 + 两轮对齐确认）: 首页筛选值与页码经 sessionStorage 持久化（进入详情返回/刷新页面均保留，关闭页面重置；「更多筛选」展开状态不持久化）；科目输入防抖仅在值确实变化时重置页码 | （待提交） |
+| 2026-08-30 | v0.5.0 | 标题搜索（单号搜索，用户四点对齐确认）: GET /gigs 新增 `q` 查询参数（仅匹配 title、不区分大小写包含匹配、与其他筛选 AND 叠加、含 `*`/`%` 或 trim 后超 60 字符 422、空串视为未提供）；学生首页与管理列表各接入常驻搜索框（350ms 防抖即时生效，无需回车）；首页搜索词进 sessionStorage 持久化（管理侧不持久化，随 /admin 列表现状）；搜索无结果空态文案「没有找到相关单子，换个关键词试试」与默认空态区分 | （工作区，未提交） |

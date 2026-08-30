@@ -61,6 +61,16 @@
 
 验收：`npm run typecheck`、`npm run test`、`npm run build`、BFF typecheck/test 全绿；drift_lite ok=true；覆盖矩阵 M6 新增条目转「已自动化」。
 
+## M7 标题搜索（v0.5.0 新增；依赖 M2/M3/M4，可与 M6 并行）
+
+> 来源：2026-08-30 用户需求（四点对齐确认）：学生首页与管理列表都提供标题（单号=标题）搜索；仅匹配 title；350ms 防抖即时生效；首页搜索词随 v0.4.1 持久化链路进 sessionStorage（管理侧不持久化，随 /admin 列表现状）。
+
+- [x] T-M7-1 BFF：`bff/src/routes/gigs.ts` 解析 `q`（trim 后空串视为未提供；含 `*`/`%` 返回 422；trim 后超 60 字符返回 422）；`bff/src/lib/db.ts` `listGigs` 加 `title ilike '%q%'` 不区分大小写包含匹配（与其他筛选 AND）；`bff/tests/gigs-route.test.ts` 新增 TC-VIEW-013 路由层用例与 CT-GIG-004 契约用例（命中/大小写/叠加/无结果 total=0/通配符 422/超长 422/空串与纯空格忽略）。
+- [x] T-M7-2 学生首页搜索框：`src/pages/HomePage.tsx` 筛选区顶部常驻输入框（placeholder「搜单号 / 标题关键词」）；`StoredFilters` 新增 `q`/`qText` 字段并入 v0.4.1 持久化与恢复校验（复用 `pickText` 截断）；搜索词 350ms 防抖、值确实变化时重置页码（复用科目输入防抖模式）；搜索词不计入「更多筛选」角标计数；搜索激活且无结果时空态文案「没有找到相关单子，换个关键词试试」，清空后恢复默认空态；`tests/view-components.test.tsx` 新增 TC-VIEW-013 组件层与 TC-VIEW-014 / TC-VIEW-015 用例。
+- [x] T-M7-3 管理列表搜索框：`src/pages/admin/AdminPage.tsx` 状态 Tab 区加常驻输入框（同一 `q` 参数）；queryKey 与请求参数加 `q`；搜索词变化重置页码；不做 sessionStorage 持久化（离开 /admin 重置）；`tests/admin-components.test.tsx` 新增 TC-ADMIN-007 用例（输入后请求带 q、状态 Tab 叠加、离开重置）。
+
+验收：`npm run typecheck`、`npm run test`、`npm run build`、`cd bff && npm run typecheck`、`cd bff && npm run test` 全绿；`drift_lite` 输出 `ok=true`；覆盖矩阵 v0.5.0 新增 5 行转「已自动化」。
+
 ## M5 验收与上线（依赖 M2..M4 全部完成）
 
 > 验收方式（2026-08-29 用户 PO 指示）：除静态检查（grep 泄露门禁、代码走查、文档收口等可由 Agent 代办的项）外，不做自动化实测验收——Lighthouse 实测、真机回归、线上冒烟、限流验证等由用户手动验收，证据由用户回填。

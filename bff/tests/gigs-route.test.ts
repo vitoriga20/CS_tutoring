@@ -1,5 +1,5 @@
 // 路由测试：用内存版 PostgREST fake 替换 SupabaseRest（业务 oracle 与 spec 覆盖矩阵对齐）
-// 覆盖：CT-GIG-001、CT-ADMIN-001、TC-VIEW-001/002/006、TC-ADMIN-001..005、PT-GIG-02/03
+// 覆盖：CT-GIG-001/004、CT-ADMIN-001、TC-VIEW-001/002/006/008..013、TC-ADMIN-001..005、PT-GIG-02/03
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../src/app';
 
@@ -56,7 +56,7 @@ const h = vi.hoisted(() => {
     return row;
   }
 
-  // PostgREST 语义的内存实现（eq / ilike 无通配符精确忽略大小写 / gte / lte（NULL 不命中）/
+  // PostgREST 语义的内存实现（eq / ilike（含 % 包含匹配，v0.5.0 q 参数）/ gte / lte（NULL 不命中）/
   // 同列多条件 / order（含 nullslast）/ offset+limit / count）
   class SupabaseRest {
     query(table: string, q: any) {
@@ -70,7 +70,15 @@ const h = vi.hoisted(() => {
         rows = rows.filter((r) =>
           conds.every(([op, val]) => {
             if (op === 'eq') return r[col] === val;
-            if (op === 'ilike') return String(r[col]).toLowerCase() === String(val).toLowerCase();
+            if (op === 'ilike') {
+              // 含 % 通配符 = 包含匹配（title ilike '%q%'）；无通配符 = 不区分大小写精确匹配
+              const pattern = String(val);
+              if (pattern.includes('%')) {
+                const needle = pattern.split('%').filter(Boolean).join('');
+                return String(r[col]).toLowerCase().includes(needle.toLowerCase());
+              }
+              return String(r[col]).toLowerCase() === pattern.toLowerCase();
+            }
             if (op === 'gte' || op === 'lte') {
               // NULL 不参与数值比较（spec v0.4.0：hourly_rate NULL 不命中价格档）
               const v = r[col] as number | null;
@@ -323,6 +331,77 @@ describe('GET /api/v1/gigs（公开列表）', () => {
     h.seedGig({ status: 'open' });
     h.seedGig({ status: 'closed', title: '已关闭单' });
     const res = await app.request('/api/v1/gigs?status=all', authInit(null), ENV, EXEC_CTX);
+    const body = await jsonBody(res);
+    expect(body.data).toHaveLength(2);
+    expect(body.meta.total).toBe(2);
+  });
+
+  // ── v0.5.0 标题搜索（spec §2.1 场景 + §3 q 契约） ────────────────
+  it('TC-VIEW-013：q 命中 title 包含匹配且不区分大小写', async () => {
+    h.seedGig({ title: '高二数学一对一' });
+    h.seedGig({ title: '初三英语辅导' });
+    h.seedGig({ title: 'SAT Math Prep 001' });
+    const zh = await app.request(`/api/v1/gigs?q=${encodeURIComponent('数学')}`, authInit(null), ENV, EXEC_CTX);
+    expect(zh.status).toBe(200);
+    const zhBody = await jsonBody(zh);
+    expect(zhBody.data).toHaveLength(1);
+    expect(zhBody.data[0].title).toBe('高二数学一对一');
+    expect(zhBody.meta.total).toBe(1);
+
+    // 大小写不敏感：小写 q 命中含大写的 title
+    const en = await app.request('/api/v1/gigs?q=math', authInit(null), ENV, EXEC_CTX);
+    const enBody = await jsonBody(en);
+    expect(enBody.data).toHaveLength(1);
+    expect(enBody.data[0].title).toBe('SAT Math Prep 001');
+  });
+
+  it('TC-VIEW-013：q 与其他筛选 AND 叠加（title 包含 + grade_level）', async () => {
+    h.seedGig({ title: '高二数学一对一', grade_level: 'senior' });
+    h.seedGig({ title: '初三数学辅导', grade_level: 'junior' });
+    const res = await app.request(
+      `/api/v1/gigs?q=${encodeURIComponent('数学')}&grade_level=senior`,
+      authInit(null),
+      ENV,
+      EXEC_CTX,
+    );
+    expect(res.status).toBe(200);
+    const body = await jsonBody(res);
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].title).toBe('高二数学一对一');
+  });
+
+  it('TC-VIEW-013：搜索无结果 total=0', async () => {
+    h.seedGig({ title: '高二数学一对一' });
+    const res = await app.request(`/api/v1/gigs?q=${encodeURIComponent('法语')}`, authInit(null), ENV, EXEC_CTX);
+    expect(res.status).toBe(200);
+    const body = await jsonBody(res);
+    expect(body.data).toHaveLength(0);
+    expect(body.meta.total).toBe(0);
+  });
+
+  it('CT-GIG-004：q 含 * 或 % → 422 VALIDATION_ERROR，details 指向 q', async () => {
+    for (const v of ['数学*', '数学%']) {
+      const res = await app.request(`/api/v1/gigs?q=${encodeURIComponent(v)}`, authInit(null), ENV, EXEC_CTX);
+      expect(res.status, v).toBe(422);
+      const body = await jsonBody(res);
+      expect(body.code, v).toBe('VALIDATION_ERROR');
+      expect(body.details.some((d: { field: string }) => d.field === 'q'), v).toBe(true);
+    }
+  });
+
+  it('CT-GIG-004：q trim 后超 60 字符 → 422', async () => {
+    const res = await app.request(`/api/v1/gigs?q=${'a'.repeat(61)}`, authInit(null), ENV, EXEC_CTX);
+    expect(res.status).toBe(422);
+    const body = await jsonBody(res);
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(body.details.some((d: { field: string }) => d.field === 'q')).toBe(true);
+  });
+
+  it('CT-GIG-004：q 空串/纯空格视为未提供，等价默认列表', async () => {
+    h.seedGig({ title: '高二数学一对一' });
+    h.seedGig({ title: '初三英语辅导' });
+    const res = await app.request(`/api/v1/gigs?q=${encodeURIComponent('   ')}`, authInit(null), ENV, EXEC_CTX);
+    expect(res.status).toBe(200);
     const body = await jsonBody(res);
     expect(body.data).toHaveLength(2);
     expect(body.meta.total).toBe(2);

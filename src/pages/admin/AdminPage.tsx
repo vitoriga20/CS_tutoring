@@ -1,7 +1,9 @@
-// 单子管理列表（T-M4-2，契约：spec.md §2.2 + §3 status 参数 open|matched|closed|all）
+// 单子管理列表（T-M4-2 + v0.5.0 标题搜索，契约：spec.md §2.2 + §3 status 参数 open|matched|closed|all）
 // 状态 Tab 切换；行内状态操作按状态机只渲染合法目标状态（GigRowActions）；
 // 删除走二次确认模态（移植的 grad .modal）；迁移/删除成功后失效列表缓存。
-import { useState } from 'react';
+// v0.5.0：状态 Tab 区常驻搜索框（同一 q 参数，350ms 防抖）；搜索词变化重置页码；
+// 搜索词不做 sessionStorage 持久化（离开 /admin 即重置，随列表现状）。
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ChevronLeft, ChevronRight, Inbox, Plus } from 'lucide-react';
 import { Link } from 'react-router';
@@ -29,10 +31,31 @@ export default function AdminPage() {
   const [page, setPage] = useState(1);
   const [confirmTarget, setConfirmTarget] = useState<Gig | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // v0.5.0 标题搜索：search=输入框文本，q=防抖后实际生效的搜索词（不持久化）
+  const [search, setSearch] = useState('');
+  const [q, setQ] = useState('');
+
+  // 搜索词 350ms 防抖即时生效；值确实变化时重置页码
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const v = search.trim();
+      if (v !== q) {
+        setQ(v);
+        setPage(1);
+      }
+    }, 350);
+    return () => window.clearTimeout(t);
+  }, [search, q]);
 
   const { data, isPending, isError, error, refetch } = useQuery({
-    queryKey: ['admin-gigs', { status, page }],
-    queryFn: () => apiGet<{ data: Gig[]; meta: GigListMeta }>('/gigs', { status, page, pageSize: PAGE_SIZE }),
+    queryKey: ['admin-gigs', { status, q, page }],
+    queryFn: () =>
+      apiGet<{ data: Gig[]; meta: GigListMeta }>('/gigs', {
+        status,
+        q: q || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+      }),
     retry: 1,
   });
 
@@ -82,6 +105,17 @@ export default function AdminPage() {
           用户中心
         </Link>
       </div>
+
+      {/* v0.5.0 管理列表标题搜索：350ms 防抖即时生效，与状态 Tab AND 叠加；不持久化 */}
+      <input
+        className="input filter-search"
+        type="search"
+        aria-label="搜单号 / 标题关键词"
+        placeholder="搜单号 / 标题关键词（标题即单号）"
+        maxLength={60}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
       <div className="gh-tabs" role="tablist" aria-label="按状态筛选" style={{ marginBottom: 14 }}>
         {STATUS_TABS.map((t) => (

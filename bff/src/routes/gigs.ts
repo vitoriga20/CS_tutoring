@@ -60,6 +60,19 @@ gigs.get('/', async (c) => {
     return validationError(c, [{ field: 'sort', reason: '须为 newest | rate_desc 之一' }]);
   }
 
+  // v0.5.0 标题搜索：q 仅匹配 title 做不区分大小写的包含匹配；trim 后空串视为未提供；
+  // 含 * / % 或 trim 后超 60 字符返回 422（通配符不作为搜索语法，沿 subject 补钉先例）
+  const qRaw = c.req.query('q') || undefined;
+  const q = qRaw?.trim() || undefined;
+  if (q) {
+    if (/[*%]/.test(q)) {
+      return validationError(c, [{ field: 'q', reason: '不能包含 * 或 %' }]);
+    }
+    if (q.length > 60) {
+      return validationError(c, [{ field: 'q', reason: '长度须在 1..60' }]);
+    }
+  }
+
   const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(c.req.query('pageSize') || '20', 10) || 20));
 
@@ -68,6 +81,7 @@ gigs.get('/', async (c) => {
     grade_level,
     mode,
     subject,
+    q,
     district: districtRaw as District | undefined,
     price: priceRaw as PriceFilter | undefined,
     student_gender: genderRaw as StudentGender | undefined,

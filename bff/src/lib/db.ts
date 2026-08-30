@@ -10,6 +10,8 @@ export interface GigListFilters {
   grade_level?: string;
   mode?: string;
   subject?: string;
+  // v0.5.0 标题搜索：对 title 做不区分大小写的包含匹配（与 status 等筛选 AND 叠加）
+  q?: string;
   district?: District;
   price?: PriceFilter;
   student_gender?: StudentGender;
@@ -25,6 +27,7 @@ function client(env: Bindings): SupabaseRest {
 
 // 列表：status/grade_level/mode/district 精确匹配；subject 为 trim 后不区分大小写的精确匹配
 //（PostgREST ilike 无通配符时等价于 lower(subject)=lower($1)，通配符已在路由层拒绝）
+// q（v0.5.0）为 title 不区分大小写的包含匹配（ilike '%q%'），通配符同样已在路由层拒绝；
 // price 档位（spec v0.4.0 §3）：按 hourly_rate 左开右闭过滤（(下限,上限]），NULL 不命中任何档位
 // sort：newest（缺省）= created_at desc；rate_desc = hourly_rate 降序 NULL 殿后（殿后段保持 created_at desc）
 // Prefer: count=exact 取真实 total
@@ -37,6 +40,7 @@ export async function listGigs(
   if (f.grade_level) filters.grade_level = ['eq', f.grade_level];
   if (f.mode) filters.mode = ['eq', f.mode];
   if (f.subject) filters.subject = ['ilike', f.subject.trim()];
+  if (f.q) filters.title = ['ilike', `%${f.q}%`];
   if (f.district) filters.district = ['eq', f.district];
   if (f.student_gender) filters.student_gender = ['eq', f.student_gender];
   const range: Array<['gte' | 'lte', number]> = [];

@@ -11,6 +11,9 @@
 - [ ] TC-VIEW-005 matched/closed 详情页徽标 + 联系按钮禁用（REQ-VIEW-05）
 - [ ] TC-VIEW-006 不存在的单子返回 404 页面文案，接口 code 为 GIG_NOT_FOUND（REQ-VIEW-06）
 - [ ] TC-VIEW-007 弹层三级回退组合（contact_wxid × 发布者 wxid × 发布者 qr）逐项符合 P-GIG-04（REQ-VIEW-07）
+- [x] TC-VIEW-013 首页标题搜索：q 命中不区分大小写、与其他筛选 AND 叠加、防抖生效后请求携带 q（REQ-VIEW-13，M7；bff 路由层 + tests/view-components.test.tsx 全绿）
+- [x] TC-VIEW-014 搜索无结果空态文案「没有找到相关单子，换个关键词试试」，清空后恢复默认列表（REQ-VIEW-14，M7；tests/view-components.test.tsx 全绿）
+- [x] TC-VIEW-015 首页搜索词随筛选一并 sessionStorage 持久化，关闭页面重置（REQ-VIEW-15，M7；tests/view-components.test.tsx 全绿）
 - [ ] TC-ACCT-001 用户中心查看/修改/置空自己 wxid 均 200 且 GET 立即反映（REQ-ACCT-01）
 - [ ] TC-ACCT-002 用户中心非法资料（41 字 wxid、非 https qr URL）422 且 details 指向字段（REQ-ACCT-02）
 - [ ] TC-ACCT-003 用户中心匿名 401、free 用户 403（REQ-ACCT-03）
@@ -21,6 +24,7 @@
 - [ ] TC-ADMIN-004 状态流转 open→matched→closed→open 全部 200（REQ-ADMIN-04）
 - [ ] TC-ADMIN-005 同值重申 200 且 updated_at 不变；closed→matched 返回 422 GIG_INVALID_TRANSITION（REQ-ADMIN-05）
 - [ ] TC-ADMIN-006 删除 204 且详情转 404（REQ-ADMIN-07）
+- [x] TC-ADMIN-007 管理列表标题搜索与状态 Tab AND 叠加；离开 /admin 搜索词重置（REQ-ADMIN-08，M7；tests/admin-components.test.tsx 全绿）
 - [ ] CT-ADMIN-001 未登录写端点 401、free 用户 403，且无数据变更（REQ-ADMIN-06）
 
 ## 2. API 契约门（对照 specs/openapi.yaml）
@@ -29,6 +33,7 @@
 - [ ] 所有错误响应形状 `{error, code, detail?}`，错误码逐字命中 spec §6 字典
 - [ ] 分页参数 `page/pageSize` 生效：默认 20、上限 100、page<1 归 1
 - [ ] status 查询参数 open/matched/closed/all 生效，非法值 422
+- [x] q 查询参数契约：含 `*`/`%` 返回 422、trim 后超 60 字符 422、空串/纯空格等同未提供（CT-GIG-004，REQ-CT-04，M7；bff/tests/gigs-route.test.ts 全绿）
 - [ ] PATCH site-config 后 GET 立即反映新值（gigs 列表边缘缓存 TTL 不影响 site-config）
 - [ ] PATCH me 后 GET 立即反映新值；置空 wxid（显式 null）后弹层回退链按空值处理
 

@@ -1,6 +1,7 @@
 /** @vitest-environment happy-dom */
-// M4 管理端组件验收（tasks.md T-M4-2/T-M4-3）。状态机 oracle：specs/spec.md §5.1 + P-GIG-01；
-// 删除二次确认：Gherkin §2.2「删除单子」的 UI 门；422 details 字段映射：§3 错误契约。
+// M4 管理端组件验收（tasks.md T-M4-2/T-M4-3）+ v0.5.0 管理列表搜索（TC-ADMIN-007）。
+// 状态机 oracle：specs/spec.md §5.1 + P-GIG-01；删除二次确认：Gherkin §2.2「删除单子」的 UI 门；
+// 422 details 字段映射：§3 错误契约。用例 ID 与 specs/spec.md 第 7 部分覆盖矩阵逐字一致。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -170,6 +171,42 @@ describe('AdminPage 删除二次确认（T-M4-2）', () => {
     await waitFor(() =>
       expect(apiDeleteMock).toHaveBeenCalledWith(`/gigs/${makeGig().id}`),
     );
+  });
+});
+
+describe('TC-ADMIN-007 管理列表标题搜索（v0.5.0）', () => {
+  const PAGE_OK: Page<Gig> = { data: [makeGig({ title: '高二数学一对一' })], meta: { page: 1, pageSize: 20, total: 1 } };
+
+  it('输入后 350ms 防抖请求携带 q；与状态 Tab AND 叠加；离开 /admin 后搜索词重置', async () => {
+    const { apiGet } = await import('../src/services/api');
+    const apiGetMock = vi.mocked(apiGet);
+    apiGetMock.mockResolvedValue(PAGE_OK);
+
+    const first = withProviders(<AdminPage />);
+    expect(await screen.findByText('高二数学一对一')).toBeTruthy();
+
+    // 输入搜索词：防抖生效后请求携带 q=数学（状态 Tab 仍为「全部」）
+    const box = screen.getByLabelText(/搜单号/) as HTMLInputElement;
+    fireEvent.change(box, { target: { value: '数学' } });
+    await waitFor(() => expect(apiGetMock).toHaveBeenLastCalledWith('/gigs', expect.objectContaining({ q: '数学' })));
+
+    // 切换状态 Tab「已匹配」：请求同时携带 q 与 status（AND 叠加）
+    fireEvent.click(screen.getByRole('tab', { name: '已匹配' }));
+    await waitFor(() =>
+      expect(apiGetMock).toHaveBeenLastCalledWith(
+        '/gigs',
+        expect.objectContaining({ status: 'matched', q: '数学' }),
+      ),
+    );
+
+    // 离开 /admin（卸载重挂等价刷新）：搜索框为空、请求不带 q
+    first.unmount();
+    withProviders(<AdminPage />);
+    await waitFor(() => expect(screen.findByText('高二数学一对一')).toBeTruthy());
+    const lastCall = apiGetMock.mock.calls[apiGetMock.mock.calls.length - 1];
+    expect((screen.getByLabelText(/搜单号/) as HTMLInputElement).value).toBe('');
+    // 未输入时 q 为 undefined（apiGet 会过滤掉该参数，等价不携带 q）
+    expect(lastCall?.[1]?.q).toBeUndefined();
   });
 });
 

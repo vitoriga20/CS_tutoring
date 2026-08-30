@@ -282,6 +282,9 @@ textarea.block-input { resize: vertical; }
 .chip-custom::placeholder { color: #9aa7b8; }
 .chip-custom:focus { border-color: var(--ba-navy); box-shadow: 0 0 0 3px rgba(39, 115, 225, .18); }
 
+/* 标题搜索框（v0.5.0）：筛选区顶部常驻整行输入 */
+.filter-search { width: 100%; margin-bottom: 10px; }
+
 /* 「更多筛选」切换钮：chip 同款 + 激活计数徽标 + 展开箭头 */
 .more-toggle { font-weight: var(--ba-fw-bold); }
 .more-toggle__badge {
