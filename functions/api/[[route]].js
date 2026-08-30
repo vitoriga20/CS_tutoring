@@ -2978,12 +2978,15 @@ function segmentText(raw2) {
   const blocks = [];
   let cur = [];
   for (const rawLine of raw2.split(/\r?\n/)) {
-    const line = rawLine.trim();
+    let line = rawLine.trim();
     if (!line) continue;
-    if (line.startsWith("#")) continue;
     if (EMOJI_ONLY_RE.test(line)) continue;
     const stripped = line.replace(/^[^\u4e00-\u9fa5A-Za-z0-9#]+/, "");
-    if (stripped.startsWith("#")) continue;
+    if (stripped.startsWith("#")) {
+      const rest = stripped.slice(1).trim();
+      if (rest === "" || TITLE_RE.test(rest)) continue;
+      line = rest;
+    }
     if (!LABEL_LINE_RE.test(line) && TITLE_RE.test(line)) {
       if (cur.length > 0) blocks.push(cur.join("\n"));
       cur = [line];
@@ -3096,6 +3099,7 @@ function dedupKey(title) {
 function parseGigBlock(block) {
   const lines = block.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
   const title = truncate(lines[0] ?? null, MAX.title);
+  const hasLabel = lines.some((l) => LABEL_LINE_RE.test(l));
   const pick = (label) => {
     for (const line of lines) {
       const m = line.match(LABEL_VALUE_RE);
@@ -3117,31 +3121,69 @@ function parseGigBlock(block) {
     MAX.requirements
   );
   const blockText = block;
+  const inferred = hasLabel ? {} : inferByFeatures(lines.slice(1), studentInfo);
+  const finalRegion = region ?? inferred.region ?? null;
+  const finalSubject = subject ?? inferred.subject ?? null;
+  const finalRate = rate ?? inferred.rate ?? null;
+  const finalRequirements = requirements ?? inferred.requirements ?? null;
   return {
     title,
-    subject,
-    grade_level: extractGradeLevel(studentInfo, subjectValue, region),
+    subject: finalSubject,
+    grade_level: extractGradeLevel(studentInfo, subjectValue, finalRegion),
     mode: /线上|网课|直播/.test(blockText) ? "online" : "offline",
-    region,
-    district: extractDistrict(region),
-    hourly_rate: extractHourlyRate(rate),
+    region: finalRegion,
+    district: extractDistrict(finalRegion),
+    hourly_rate: extractHourlyRate(finalRate),
     student_gender: extractGender(studentInfo),
     student_info: studentInfo,
-    rate,
-    schedule,
-    requirements,
+    rate: finalRate,
+    schedule: schedule ?? inferred.schedule ?? null,
+    requirements: finalRequirements,
     contact_wxid: null
     // v1 不提取（§5.1）
   };
 }
+var STUDENT_HINT_RE = /(准?[一二三四五六]年级|准?初[一二三]|准?高[一二三]|准?大[一二三四]|准[一二三四五六]|[一二三四五六](升|进)[一二三四五六]|小学生|初中生|高中生|男孩|女孩|幼儿|大班|小班)/;
 function fallbackStudentInfo(contentLines) {
-  for (const line of contentLines) {
-    if (LABEL_LINE_RE.test(line)) continue;
-    if (/^\d+[.、]/.test(line)) continue;
-    if (EMOJI_ONLY_RE.test(line)) continue;
-    return truncate(line, MAX.student_info);
+  const plain = contentLines.filter(
+    (l) => !LABEL_LINE_RE.test(l) && !/^\d+[.、．]/.test(l) && !EMOJI_ONLY_RE.test(l)
+  );
+  for (const line of plain) {
+    if (STUDENT_HINT_RE.test(line)) return truncate(line, MAX.student_info);
   }
-  return null;
+  return truncate(plain[0] ?? null, MAX.student_info);
+}
+var FEATURE_RULES = [
+  { field: "rate", re: /\d{1,5}\s*(?:元|\/小时|每小时|一小时|块|左右|\/h|次|天)/ },
+  // 数字+计费单位（最强）
+  { field: "subject", re: /[语数英理化生政史地]{2,}|语文|数学|英语|物理|化学|生物|政治|历史|地理|全科|奥数/ },
+  { field: "region", re: /小区|住宅|路|街|苑|园|广场|附近|大道|巷|湾|郡|府|镇|村|栋/ },
+  { field: "schedule", re: /周[一到五]|周一|周二|周三|周四|周五|每天|每周|下午|晚上|上午|四点半|点半|点后/ },
+  { field: "requirements", re: /老师|要求|经验|耐心|负责|优先|责任心/ }
+];
+function inferByFeatures(contentLines, studentInfo) {
+  const out = {};
+  const taken = /* @__PURE__ */ new Set();
+  if (studentInfo) taken.add(studentInfo);
+  for (const raw2 of contentLines) {
+    if (LABEL_LINE_RE.test(raw2) || taken.has(raw2)) continue;
+    const hit = FEATURE_RULES.find((r) => r.re.test(raw2));
+    if (!hit) continue;
+    taken.add(raw2);
+    if (hit.field === "rate") {
+      out.rate = truncate(raw2, MAX.rate);
+      out.hourly_rate = extractHourlyRate(raw2);
+    } else if (hit.field === "subject") {
+      out.subject = normalizeSubject(raw2);
+    } else if (hit.field === "region") {
+      out.region = truncate(raw2, MAX.region);
+    } else if (hit.field === "schedule") {
+      out.schedule = truncate(raw2, MAX.schedule);
+    } else {
+      out.requirements = truncate(raw2, MAX.requirements);
+    }
+  }
+  return out;
 }
 function markDuplicates(drafts) {
   const seen = /* @__PURE__ */ new Set();

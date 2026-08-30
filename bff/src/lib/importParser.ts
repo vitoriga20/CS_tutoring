@@ -110,13 +110,17 @@ export function segmentText(raw: string): string[] {
   const blocks: string[] = [];
   let cur: string[] = [];
   for (const rawLine of raw.split(/\r?\n/)) {
-    const line = rawLine.trim();
+    let line = rawLine.trim();
     if (!line) continue;
-    if (line.startsWith('#')) continue; // 注释行
     if (EMOJI_ONLY_RE.test(line)) continue; // 纯 emoji 装饰行
-    // 通告/注释行：剥行首装饰（emoji 等，保留 #）后为 # 注释（如「📘 #开学单已秒 …」）
+    // # 行（v0.1.4 G2）：剥 # 后为通告行（余文是标题，如「📘 #开学单已秒 长沙家教网…」）→ 跳过；
+    // 剥 # 后为内容/注释行（如「#老师要有耐心…」）→ 剥 # 保留为正文行
     const stripped = line.replace(/^[^\u4e00-\u9fa5A-Za-z0-9#]+/, '');
-    if (stripped.startsWith('#')) continue;
+    if (stripped.startsWith('#')) {
+      const rest = stripped.slice(1).trim();
+      if (rest === '' || TITLE_RE.test(rest)) continue;
+      line = rest;
+    }
     if (!LABEL_LINE_RE.test(line) && TITLE_RE.test(line)) {
       if (cur.length > 0) blocks.push(cur.join('\n'));
       cur = [line];
@@ -250,6 +254,7 @@ export function dedupKey(title: string): string {
 export function parseGigBlock(block: string): GigImportDraft {
   const lines = block.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
   const title = truncate(lines[0] ?? null, MAX.title);
+  const hasLabel = lines.some((l) => LABEL_LINE_RE.test(l)); // 有标签块走标签抽取；无标签块启用特征分派（v0.1.4 G2）
 
   const pick = (label: string): string | null => {
     for (const line of lines) {
@@ -275,32 +280,75 @@ export function parseGigBlock(block: string): GigImportDraft {
   );
   const blockText = block;
 
+  // 无标签块：行级特征词分派兜底（rate/subject/region/schedule/requirements）
+  const inferred = hasLabel ? {} : inferByFeatures(lines.slice(1), studentInfo);
+  const finalRegion = region ?? inferred.region ?? null;
+  const finalSubject = subject ?? inferred.subject ?? null;
+  const finalRate = rate ?? inferred.rate ?? null;
+  const finalRequirements = requirements ?? inferred.requirements ?? null;
+
   return {
     title,
-    subject,
-    grade_level: extractGradeLevel(studentInfo, subjectValue, region),
+    subject: finalSubject,
+    grade_level: extractGradeLevel(studentInfo, subjectValue, finalRegion),
     mode: /线上|网课|直播/.test(blockText) ? 'online' : 'offline',
-    region,
-    district: extractDistrict(region),
-    hourly_rate: extractHourlyRate(rate),
+    region: finalRegion,
+    district: extractDistrict(finalRegion),
+    hourly_rate: extractHourlyRate(finalRate),
     student_gender: extractGender(studentInfo),
     student_info: studentInfo,
-    rate,
-    schedule,
-    requirements,
+    rate: finalRate,
+    schedule: schedule ?? inferred.schedule ?? null,
+    requirements: finalRequirements,
     contact_wxid: null, // v1 不提取（§5.1）
   };
 }
 
-// 无「学员情况」标签时取块内描述性段落：首个非标签、非标题、非编号列表的正文行
+// 无「学员情况」标签时取块内描述性段落：优先含年级词的行（学员描述），否则取首个非标签正文行（v0.1.4 G2）
+const STUDENT_HINT_RE = /(准?[一二三四五六]年级|准?初[一二三]|准?高[一二三]|准?大[一二三四]|准[一二三四五六]|[一二三四五六](升|进)[一二三四五六]|小学生|初中生|高中生|男孩|女孩|幼儿|大班|小班)/;
 function fallbackStudentInfo(contentLines: string[]): string | null {
-  for (const line of contentLines) {
-    if (LABEL_LINE_RE.test(line)) continue;
-    if (/^\d+[.、]/.test(line)) continue;
-    if (EMOJI_ONLY_RE.test(line)) continue;
-    return truncate(line, MAX.student_info);
+  const plain = contentLines.filter(
+    (l) => !LABEL_LINE_RE.test(l) && !/^\d+[.、．]/.test(l) && !EMOJI_ONLY_RE.test(l),
+  );
+  for (const line of plain) {
+    if (STUDENT_HINT_RE.test(line)) return truncate(line, MAX.student_info);
   }
-  return null;
+  return truncate(plain[0] ?? null, MAX.student_info);
+}
+
+// ── v0.1.4 G2 无标签块特征分派 ───────────────────────────────────
+// 仅当块内没有任何「标签：值」行时启用；行级特征词分派，优先级 rate > subject > region > schedule > requirements
+const FEATURE_RULES: ReadonlyArray<{ field: 'rate' | 'subject' | 'region' | 'schedule' | 'requirements'; re: RegExp }> = [
+  { field: 'rate', re: /\d{1,5}\s*(?:元|\/小时|每小时|一小时|块|左右|\/h|次|天)/ }, // 数字+计费单位（最强）
+  { field: 'subject', re: /[语数英理化生政史地]{2,}|语文|数学|英语|物理|化学|生物|政治|历史|地理|全科|奥数/ },
+  { field: 'region', re: /小区|住宅|路|街|苑|园|广场|附近|大道|巷|湾|郡|府|镇|村|栋/ },
+  { field: 'schedule', re: /周[一到五]|周一|周二|周三|周四|周五|每天|每周|下午|晚上|上午|四点半|点半|点后/ },
+  { field: 'requirements', re: /老师|要求|经验|耐心|负责|优先|责任心/ },
+];
+
+function inferByFeatures(contentLines: string[], studentInfo: string | null): Partial<GigImportDraft> {
+  const out: Partial<GigImportDraft> = {};
+  const taken = new Set<string>();
+  if (studentInfo) taken.add(studentInfo);
+  for (const raw of contentLines) {
+    if (LABEL_LINE_RE.test(raw) || taken.has(raw)) continue;
+    const hit = FEATURE_RULES.find((r) => r.re.test(raw));
+    if (!hit) continue;
+    taken.add(raw);
+    if (hit.field === 'rate') {
+      out.rate = truncate(raw, MAX.rate);
+      out.hourly_rate = extractHourlyRate(raw);
+    } else if (hit.field === 'subject') {
+      out.subject = normalizeSubject(raw);
+    } else if (hit.field === 'region') {
+      out.region = truncate(raw, MAX.region);
+    } else if (hit.field === 'schedule') {
+      out.schedule = truncate(raw, MAX.schedule);
+    } else {
+      out.requirements = truncate(raw, MAX.requirements);
+    }
+  }
+  return out;
 }
 
 // ── §4.1 去重标记：按去重键归一，首条保留、其余 duplicate=true ──

@@ -340,3 +340,85 @@ describe('v0.1.3 解析增强（短标签/前导噪声/值级解析，用户对�
     }
   });
 });
+
+describe('v0.1.4 G2 无标签块特征分派（用户对齐颗粒度 G2）', () => {
+  const LABEL_FREE_BLOCK = [
+    '💖💒•₊˚🎧🧷 ◝꒱ 𓂂 ',
+    '长沙家教网10034644号家教4',
+    '龙湖湘风原著住宅小区A2区',
+    '四年级 女孩一个    一年级女孩一个（1.5小时）',
+    '语数家庭作业+基础巩固',
+    '现在周一到周五下午四点半以后，开学上课',
+    '#老师要有耐心 负责 经验丰富  女老师',
+    '50/小时 每次2小时   四年级一个老师  一年级一个老师',
+  ].join('\n');
+
+  it('用户无标签块：全字段解析成功，一键可导入（status=ok）', () => {
+    const rows = parseImport(LABEL_FREE_BLOCK);
+    expect(rows).toHaveLength(1);
+    const r = rows[0];
+    expect(r.status).toBe('ok');
+    expect(r.issues).toHaveLength(0);
+    const d = r.draft;
+    expect(d.title).toContain('10034644');
+    expect(d.subject).toBe('语文·数学家庭作业+基础巩固'); // 语数 → 语文·数学
+    expect(d.grade_level).toBe('primary'); // 四年级
+    expect(d.region).toBe('龙湖湘风原著住宅小区A2区'); // 小区 特征
+    expect(d.student_info).toContain('四年级 女孩一个'); // fallback 年级词行优先
+    expect(d.student_gender).toBe('female'); // 女孩
+    expect(d.hourly_rate).toBe(50); // 50/小时
+    expect(d.rate).toContain('50/小时');
+    expect(d.schedule).toContain('周一到周五'); // 时间特征
+    expect(d.requirements).toContain('老师要有耐心'); // # 行剥 # 后分派
+    expect(d.district).toBe('other'); // 无区县词 → other 兜底（永不 issue）
+  });
+
+  it('# 内容行剥 # 参与特征分派；纯注释 # 行不污染字段', () => {
+    // # 内容行（老师要有耐心…）→ requirements；#92优先 这类纯注释无特征词 → 不进任何字段
+    const raw = [
+      '长沙家教网10034644号家教',
+      '龙湖湘风原著住宅小区A2区',
+      '语数家庭作业',
+      '#92优先',
+      '#老师要有耐心 负责 经验丰富',
+      '50/小时',
+    ].join('\n');
+    const rows = parseImport(raw);
+    expect(rows).toHaveLength(1);
+    const d = rows[0].draft;
+    expect(d.requirements).toBe('老师要有耐心 负责 经验丰富');
+    expect(d.rate).toContain('50/小时');
+    expect(d.subject).toBe('语文·数学家庭作业');
+    // 纯注释行未进入任何字段值
+    expect(d.requirements).not.toContain('92优先');
+    expect(d.student_info).not.toContain('92优先');
+  });
+
+  it('通告行（📘 #开学单已秒 …）仍被跳过，不产生噪声块', () => {
+    const raw = [
+      '长沙家教网10034646号家教',
+      '学员地址：北部湾',
+      '📘 #开学单已秒 长沙家教网10034646号家教',
+      '8.27长沙家教网10034675号家教',
+      '学员地址：雨花区.才子嘉都',
+    ].join('\n');
+    const rows = parseImport(raw);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].draft.title).toContain('10034646');
+    expect(rows[1].draft.title).toContain('10034675');
+  });
+
+  it('有标签块不启用特征分派（行为与 v0.1.3 一致）', () => {
+    const raw = [
+      '长沙家教网10034648号家教',
+      '学员地址：开福区.湘江壹号玉树林',
+      '辅导科目：数学',
+      '学员情况：五年级、男',
+      '教员要求：男老师，有耐心',
+      '老师薪水：50元/小时',
+    ].join('\n');
+    const rows = parseImport(raw);
+    expect(rows[0].status).toBe('ok');
+    expect(rows[0].draft.subject).toBe('数学'); // 标签优先，特征分派不介入
+  });
+});
