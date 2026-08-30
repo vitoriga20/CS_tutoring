@@ -9,3 +9,4 @@
 | 005-v1-ba-restyle.md | v1 | 视觉换皮、BA、蔚蓝档案、arona、令牌替换、类名不变、logo | 活跃 | 前端、工作区 |
 | 006-v1-filter-enhancement.md | v1 | 筛选、district、hourly_rate、价格档、排序、chip、spec-v0.4.0 | 活跃 | 前端、数据层、后端 |
 | 007-v1-filter-persistence.md | v1 | 筛选持久化、sessionStorage、页码、spec-v0.4.1、TC-VIEW-012 | 活跃 | 前端 |
+| 008-v1-admin-import-alignment.md | v1 | 导入、批量、解析、自动匹配、字段、admin、纯文本、规则正则、预览确认入库 | 已实现（SPEC-002 v0.1.2，自动化验收全绿；真机冒烟/375px 待用户） | 后端、数据层、前端 |

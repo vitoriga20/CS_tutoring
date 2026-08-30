@@ -1,12 +1,9 @@
 // BFF API 客户端（契约：specs/openapi.yaml；Bearer 注入规则：specs/spec.md §3 要点末条）
 // 响应外壳 {data} / {data, meta}；错误体 {error, code, detail?}，422 另含 details[]
 import { supabase } from '../lib/supabase';
-import type { Page } from './types';
+import type { FieldIssue, Page } from './types';
 
-export interface FieldIssue {
-  field: string;
-  reason: string;
-}
+export type { FieldIssue, Page };
 
 export class ApiError extends Error {
   readonly status: number;
@@ -104,5 +101,3 @@ export function apiPatch<T>(path: string, body: unknown): Promise<T> {
 export function apiDelete(path: string): Promise<void> {
   return request<void>(path, { method: 'DELETE' });
 }
-
-export type { Page };

@@ -36,7 +36,7 @@
 | `specs/` | 待创建：根级三件套 spec.md + tasks.md + checklist.md |
 | 审美素材库（外部，只读） | `D:\KB\项目案例\01-软件系统\前端组件\BA\`：根 `tokens.css` 是令牌唯一源，`demo2/DESIGN.md` 是工具类产品实战层（组件组合 + 校验清单）；根 `DESIGN.md` 是体系层 |
 
-活跃 Spec：SPEC-001（`specs/spec.md`，状态「已批准」v0.2.0；三件套 + openapi.yaml + 3 个实体 schema + self-check 均在 `specs/`，实施按 `specs/tasks.md` 里程碑推进）。
+活跃 Spec：SPEC-001（`specs/spec.md`，状态「已批准」v0.2.0；三件套 + openapi.yaml + 3 个实体 schema + self-check 均在 `specs/`，实施按 `specs/tasks.md` 里程碑推进）；SPEC-002 模块级补充（`specs/gig-import/`，状态「已实现」v0.1.3，管理员批量导入/自动生成家教单，实施按 `specs/gig-import/tasks.md`，对齐稿 decisions/008；真机冒烟/375px 人工门待用户，见 checklist §4/§6）。
 
 ## 真实验证命令
 
@@ -104,7 +104,7 @@ powershell -NoProfile -File tools/path_align_hooks/drift_lite.ps1
 |---|---|---|
 | P1 | `调研报告.md` | 需要需求/架构/字段草案背景时 |
 | P1 | `BACKLOG.md` | 排期与待办 |
-| P1 | `specs/`（按需创建） | 任务命中对应模块/功能时读对应节点三件套，不整树预读；层级约定：小项目只建根级三件套，展开模块级需新决策 |
+| P1 | `specs/`（按需创建） | 任务命中对应模块/功能时读对应节点三件套，不整树预读；层级约定：小项目只建根级三件套，展开模块级需新决策。已建模块级：`specs/gig-import/`（SPEC-002 批量导入，已实现 v0.1.3） |
 | P1 | 审美素材库（外部路径，见当前入口） | 实现任何 UI 时读根 `tokens.css` 令牌 + `demo2/DESIGN.md` 组件组合与校验清单 |
 | P2 | `decisions/_INDEX.md` | 追溯决策时按关键词定位 |
 

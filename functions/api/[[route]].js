@@ -2883,6 +2883,331 @@ gigs.delete("/:id", requireAdmin(), async (c) => {
   return c.body(null, 204);
 });
 
+// bff/src/lib/importParser.ts
+var MAX = { title: 60, subject: 40, region: 40, student_info: 500, rate: 40, schedule: 120, requirements: 2e3 };
+var LABELS = [
+  "\u3010\u5177\u4F53\u5730\u70B9\u3011",
+  "\u3010\u5E74\u7EA7\u79D1\u76EE\u3011",
+  "\u3010\u6BCF\u5468\u8BFE\u6B21\u3011",
+  "\u3010\u5927\u6982\u8981\u6C42\u3011",
+  "\u3010\u8BFE\u65F6\u85AA\u916C\u3011",
+  "\u3010\u5730\u5740\u3011",
+  "\u3010\u79D1\u76EE\u3011",
+  "\u3010\u65F6\u95F4\u3011",
+  "\u3010\u8981\u6C42\u3011",
+  "\u3010\u62A5\u916C\u3011",
+  "\u3010\u85AA\u8D44\u3011",
+  "\u5B66\u5458\u60C5\u51B5",
+  "\u5B66\u5458\u5730\u5740",
+  "\u5BB6\u6559\u5730\u5740",
+  "\u5177\u4F53\u5730\u70B9",
+  "\u5730\u70B9",
+  "\u8F85\u5BFC\u79D1\u76EE",
+  "\u5E74\u7EA7\u79D1\u76EE",
+  "\u65F6\u95F4\u5B89\u6392",
+  "\u6BCF\u5468\u8BFE\u6B21",
+  "\u6559\u5458\u8981\u6C42",
+  "\u8001\u5E08\u8981\u6C42",
+  "\u5927\u6982\u8981\u6C42",
+  "\u8981\u6C42",
+  "\u8001\u5E08\u85AA\u6C34",
+  "\u8BFE\u65F6\u85AA\u916C",
+  "\u5DE5\u4F5C\u5185\u5BB9",
+  "\u5DE5\u4F5C\u65F6\u95F4",
+  "\u3010\u8BD5\u8BFE\u65F6\u95F4\u3011"
+];
+var LABEL_LINE_RE = new RegExp(`^(${LABELS.join("|")})(?:\\s*[:\uFF1A\uFF0C,]|(?<=\u3011))`);
+var LABEL_VALUE_RE = new RegExp(`^(${LABELS.join("|")})(?:\\s*[:\uFF1A\uFF0C,]\\s*|(?<=\u3011)\\s*)(.*)$`);
+var TITLE_RE = /长沙家教|家教网|号\d{0,2}家教|^\d{6,}$/;
+var EMOJI_ONLY_RE = /^[^\u4e00-\u9fa5A-Za-z0-9：:。，,、（）()·.\-+\/]+$/;
+var GRADE_RULES = [
+  { re: /准?大[一二三四]|大学/, level: "college" },
+  { re: /准?[一二三四五六]年级/, level: "primary" },
+  { re: /准?初[一二三]/, level: "junior" },
+  { re: /准?高[一二三]/, level: "senior" },
+  { re: /[一二三四五六](升|进)[一二三四五六]/, level: "primary" },
+  // 四升五 / 三升四 / 二进三
+  { re: /准[一二三四五六]/, level: "primary" },
+  // 「准五」简写（无「年级」后缀）
+  { re: /小学生/, level: "primary" },
+  { re: /初中生/, level: "junior" },
+  { re: /高中生/, level: "senior" }
+];
+var SUBJECT_FULL = ["\u8BED\u6587", "\u6570\u5B66", "\u82F1\u8BED", "\u7269\u7406", "\u5316\u5B66", "\u751F\u7269", "\u653F\u6CBB", "\u5386\u53F2", "\u5730\u7406", "\u5168\u79D1", "\u5965\u6570"];
+var SUBJECT_ABBR = {
+  \u8BED: "\u8BED\u6587",
+  \u6570: "\u6570\u5B66",
+  \u82F1: "\u82F1\u8BED",
+  \u7269: "\u7269\u7406",
+  \u5316: "\u5316\u5B66",
+  \u751F: "\u751F\u7269",
+  \u653F: "\u653F\u6CBB",
+  \u53F2: "\u5386\u53F2",
+  \u5730: "\u5730\u7406",
+  \u7406: "\u7269\u7406"
+};
+var DISTRICT_PREFIX = [
+  [/^芙蓉区/, "furong"],
+  [/^天心区/, "tianxin"],
+  [/^雨花区/, "yuhua"],
+  [/^开福区/, "kaifu"],
+  [/^岳麓区/, "yuelu"],
+  [/^望城区/, "wangcheng"],
+  [/^长沙县/, "changsha_county"]
+];
+var DISTRICT_INNER = [
+  [/芙蓉区/, "furong"],
+  [/天心区/, "tianxin"],
+  [/雨花区/, "yuhua"],
+  [/开福区/, "kaifu"],
+  [/岳麓区/, "yuelu"],
+  [/望城区/, "wangcheng"],
+  [/长沙县/, "changsha_county"]
+];
+var DISTRICT_MANUAL = {
+  \u5317\u90E8\u6E7E: "wangcheng",
+  "\u6C49\u5510\xB7\u7FF0\u6797\u5E9C1\u671F": "yuelu",
+  "\u957F\u6C99\u5730\u94C14\u53F7\u7EBF\u89C2\u6C99\u5CAD\u7AD9\u9644\u8FD1": "yuelu",
+  \u541B\u5EB7\u5BB6\u56ED: "yuelu",
+  "\u957F\u6C99\u706B\u8F66\u7AD9\u9644\u8FD1": "furong",
+  "\u6DA6\u548C\u661F\u6CB3\u73A58\u680B": "yuhua",
+  \u4FDD\u5229\u5929\u6C47\u4E8C\u671F: "yuhua",
+  \u957F\u90E1\u5916\u56FD\u8BED\u9644\u8FD1: "tianxin"
+};
+function segmentText(raw2) {
+  const blocks = [];
+  let cur = [];
+  for (const rawLine of raw2.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith("#")) continue;
+    if (EMOJI_ONLY_RE.test(line)) continue;
+    const stripped = line.replace(/^[^\u4e00-\u9fa5A-Za-z0-9#]+/, "");
+    if (stripped.startsWith("#")) continue;
+    if (!LABEL_LINE_RE.test(line) && TITLE_RE.test(line)) {
+      if (cur.length > 0) blocks.push(cur.join("\n"));
+      cur = [line];
+    } else if (cur.length === 0) {
+      continue;
+    } else {
+      cur.push(line);
+    }
+  }
+  if (cur.length > 0) blocks.push(cur.join("\n"));
+  return blocks;
+}
+function truncate(s, max) {
+  if (s === null) return null;
+  const t = s.trim();
+  return t.length > max ? t.slice(0, max) : t;
+}
+function clampRate(n) {
+  return Math.min(1e4, Math.max(0, n));
+}
+function extractHourlyRate(rateText) {
+  if (!rateText) return null;
+  if (/每(次|天|周|月)[^0-9]{0,8}\d+\s*元/.test(rateText)) return null;
+  const range = rateText.match(/(\d{1,5})\s*[-~～]\s*(\d{1,5})\s*(?:元|\/小时|每小时|\/h)/);
+  if (range) return clampRate(parseInt(range[1], 10));
+  const single = rateText.match(/(\d{1,5})\s*(?:元|\/小时|每小时|一小时|块|左右|\/h)/);
+  if (!single) return null;
+  const after = rateText.slice((single.index ?? 0) + single[0].length);
+  if (/^(次|\/次|\/天|\/月|\/一次课|\/课时)/.test(after)) return null;
+  return clampRate(parseInt(single[1], 10));
+}
+function normalizeSubject(raw2) {
+  if (raw2 === null) return null;
+  let s = raw2.trim();
+  s = s.replace(/(准?[一二三四五六]年级|准?初[一二三]|准?高[一二三]|准?大[一二三四]|大学)\s*/g, "").trim();
+  if (s === "") return null;
+  if (s.includes("\u4E00\u4E2A") && !SUBJECT_FULL.some((f) => s.includes(f))) return null;
+  if (/^[语数英理化生政史地]+$/.test(s)) {
+    return truncate(
+      s.split("").map((c) => SUBJECT_ABBR[c]).join("\xB7"),
+      MAX.subject
+    );
+  }
+  const out = [];
+  let lastSubject = false;
+  let i = 0;
+  while (i < s.length) {
+    const full = SUBJECT_FULL.find((f) => s.startsWith(f, i));
+    if (full) {
+      if (lastSubject) out.push("\xB7");
+      out.push(full);
+      lastSubject = true;
+      i += full.length;
+      continue;
+    }
+    const ch = s[i];
+    const prevAbbr = i > 0 && ch in SUBJECT_ABBR && s[i - 1] in SUBJECT_ABBR;
+    const nextAbbr = i + 1 < s.length && s[i + 1] in SUBJECT_ABBR;
+    if (ch in SUBJECT_ABBR && (prevAbbr || nextAbbr || lastSubject)) {
+      if (lastSubject) out.push("\xB7");
+      out.push(SUBJECT_ABBR[ch]);
+      lastSubject = true;
+    } else {
+      out.push(ch);
+      lastSubject = false;
+    }
+    i += 1;
+  }
+  return truncate(out.join(""), MAX.subject);
+}
+function extractGradeLevel(...sources) {
+  for (const src of sources) {
+    if (!src) continue;
+    for (const { re, level } of GRADE_RULES) {
+      if (re.test(src)) return level;
+    }
+  }
+  return null;
+}
+function extractGender(studentInfo) {
+  if (!studentInfo) return "unknown";
+  if (/不限/.test(studentInfo)) return "unknown";
+  if (/女/.test(studentInfo)) return "female";
+  if (/男/.test(studentInfo)) return "male";
+  return "unknown";
+}
+function extractDistrict(region) {
+  if (!region) return "other";
+  for (const [re, d] of DISTRICT_PREFIX) {
+    if (re.test(region)) return d;
+  }
+  for (const [re, d] of DISTRICT_INNER) {
+    if (re.test(region)) return d;
+  }
+  return DISTRICT_MANUAL[region] ?? "other";
+}
+function dedupKey(title) {
+  let s = title.trim();
+  for (let guard = 0; guard < 4; guard++) {
+    const before = s;
+    s = s.replace(/^[^\u4e00-\u9fa5A-Za-z0-9#]+/, "");
+    s = s.replace(/^#\S*/, "");
+    if (s === before) break;
+  }
+  s = s.replace(/^推/, "");
+  s = s.replace(/^\d{1,2}\.\d{1,2}/, "");
+  s = s.replace(/号家教\d*/, "");
+  return s.replace(/[\s.·]/g, "").toLowerCase();
+}
+function parseGigBlock(block) {
+  const lines = block.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  const title = truncate(lines[0] ?? null, MAX.title);
+  const pick = (label) => {
+    for (const line of lines) {
+      const m = line.match(LABEL_VALUE_RE);
+      if (m && m[1] === label && m[2].trim() !== "") return m[2].trim();
+    }
+    return null;
+  };
+  const studentInfo = truncate(pick("\u5B66\u5458\u60C5\u51B5"), MAX.student_info) ?? fallbackStudentInfo(lines.slice(1));
+  const subjectValue = pick("\u8F85\u5BFC\u79D1\u76EE") ?? pick("\u5E74\u7EA7\u79D1\u76EE") ?? pick("\u3010\u5E74\u7EA7\u79D1\u76EE\u3011") ?? pick("\u3010\u79D1\u76EE\u3011");
+  const subject = normalizeSubject(subjectValue);
+  const region = truncate(
+    pick("\u5B66\u5458\u5730\u5740") ?? pick("\u5BB6\u6559\u5730\u5740") ?? pick("\u5177\u4F53\u5730\u70B9") ?? pick("\u3010\u5177\u4F53\u5730\u70B9\u3011") ?? pick("\u5730\u70B9") ?? pick("\u3010\u5730\u5740\u3011"),
+    MAX.region
+  );
+  const rate = truncate(pick("\u8001\u5E08\u85AA\u6C34") ?? pick("\u8BFE\u65F6\u85AA\u916C") ?? pick("\u3010\u8BFE\u65F6\u85AA\u916C\u3011") ?? pick("\u3010\u62A5\u916C\u3011") ?? pick("\u3010\u85AA\u8D44\u3011"), MAX.rate);
+  const schedule = truncate(pick("\u65F6\u95F4\u5B89\u6392") ?? pick("\u6BCF\u5468\u8BFE\u6B21") ?? pick("\u3010\u6BCF\u5468\u8BFE\u6B21\u3011") ?? pick("\u3010\u65F6\u95F4\u3011"), MAX.schedule);
+  const requirements = truncate(
+    pick("\u6559\u5458\u8981\u6C42") ?? pick("\u8001\u5E08\u8981\u6C42") ?? pick("\u5927\u6982\u8981\u6C42") ?? pick("\u3010\u5927\u6982\u8981\u6C42\u3011") ?? pick("\u8981\u6C42") ?? pick("\u3010\u8981\u6C42\u3011"),
+    MAX.requirements
+  );
+  const blockText = block;
+  return {
+    title,
+    subject,
+    grade_level: extractGradeLevel(studentInfo, subjectValue, region),
+    mode: /线上|网课|直播/.test(blockText) ? "online" : "offline",
+    region,
+    district: extractDistrict(region),
+    hourly_rate: extractHourlyRate(rate),
+    student_gender: extractGender(studentInfo),
+    student_info: studentInfo,
+    rate,
+    schedule,
+    requirements,
+    contact_wxid: null
+    // v1 不提取（§5.1）
+  };
+}
+function fallbackStudentInfo(contentLines) {
+  for (const line of contentLines) {
+    if (LABEL_LINE_RE.test(line)) continue;
+    if (/^\d+[.、]/.test(line)) continue;
+    if (EMOJI_ONLY_RE.test(line)) continue;
+    return truncate(line, MAX.student_info);
+  }
+  return null;
+}
+function markDuplicates(drafts) {
+  const seen = /* @__PURE__ */ new Set();
+  return drafts.map((draft, index) => {
+    const key = draft.title ? dedupKey(draft.title) : `#raw${index}`;
+    const duplicate = seen.has(key);
+    seen.add(key);
+    return { index, draft, issues: [], duplicate, status: "ok" };
+  });
+}
+function collectIssues(draft) {
+  const issues = [];
+  if (!draft.title) issues.push({ field: "title", reason: "\u672A\u8BC6\u522B\u6807\u9898" });
+  if (!draft.subject) issues.push({ field: "subject", reason: "\u672A\u8BC6\u522B\u79D1\u76EE" });
+  if (!draft.grade_level) issues.push({ field: "grade_level", reason: "\u672A\u8BC6\u522B\u5E74\u7EA7" });
+  if (!draft.region) issues.push({ field: "region", reason: "\u672A\u8BC6\u522B\u5730\u70B9" });
+  if (!draft.student_info) issues.push({ field: "student_info", reason: "\u672A\u8BC6\u522B\u5B66\u5458\u60C5\u51B5" });
+  if (!draft.requirements) issues.push({ field: "requirements", reason: "\u672A\u8BC6\u522B\u6559\u5458\u8981\u6C42" });
+  return issues;
+}
+function parseImport(raw2) {
+  const drafts = segmentText(raw2).map(parseGigBlock);
+  return markDuplicates(drafts).map((row) => {
+    const issues = collectIssues(row.draft);
+    return { ...row, issues, status: issues.length > 0 ? "error" : "ok" };
+  });
+}
+
+// bff/src/routes/import.ts
+function validationError2(c, field, reason) {
+  return c.json({ error: "\u8BF7\u6C42\u53C2\u6570\u4E0D\u6EE1\u8DB3\u7EA6\u675F", code: "VALIDATION_ERROR", details: [{ field, reason }] }, 422);
+}
+function isRecord2(v) {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+var gigImport = new Hono2();
+gigImport.post("/preview", requireAdmin(), async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!isRecord2(body) || typeof body.raw_text !== "string" || body.raw_text.trim() === "") {
+    return validationError2(c, "raw_text", "\u5FC5\u586B\u4E14\u4E3A\u975E\u7A7A\u5B57\u7B26\u4E32");
+  }
+  const rows = parseImport(body.raw_text);
+  return c.json({ data: { rows } });
+});
+gigImport.post("/", requireAdmin(), async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!isRecord2(body) || !Array.isArray(body.rows)) {
+    return validationError2(c, "rows", "\u5FC5\u586B\u4E14\u4E3A\u6570\u7EC4");
+  }
+  if (body.rows.length === 0) {
+    return validationError2(c, "rows", "\u4E0D\u80FD\u4E3A\u7A7A\u6570\u7EC4");
+  }
+  const created = [];
+  const failed = [];
+  for (let i = 0; i < body.rows.length; i++) {
+    const result = validateGigInput(body.rows[i]);
+    if (!result.ok) {
+      failed.push({ index: i, code: "VALIDATION_ERROR", details: result.details });
+      continue;
+    }
+    const gig = await insertGig(c.env, result.value, c.get("user").id);
+    created.push(gig);
+  }
+  return c.json({ data: { created, failed } }, 201);
+});
+
 // bff/src/routes/site_config.ts
 var siteConfig = new Hono2();
 siteConfig.get("/", async (c) => {
@@ -2950,6 +3275,7 @@ app.use("/api/v1/*", async (c, next) => {
 });
 app.route("/api/v1", health);
 app.route("/api/v1/gigs", gigs);
+app.route("/api/v1/gigs/import", gigImport);
 app.route("/api/v1/site-config", siteConfig);
 app.route("/api/v1/me", me);
 app.notFound((c) => c.json({ error: "Not Found", code: "NOT_FOUND" }, 404));

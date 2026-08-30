@@ -10,6 +10,7 @@ import AdminPage from './pages/admin/AdminPage';
 import AdminGigNewPage from './pages/admin/AdminGigNewPage';
 import AdminGigEditPage from './pages/admin/AdminGigEditPage';
 import AdminAccountPage from './pages/admin/AdminAccountPage';
+import AdminImportPage from './pages/admin/AdminImportPage';
 import NotFoundPage from './pages/NotFoundPage';
 import AppBackground from './components/AppBackground';
 import TabBar from './components/TabBar';
@@ -25,10 +26,11 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/gigs/:id" element={<GigDetailPage />} />
             <Route path="/admin" element={<AdminGate />}>
-              <Route index element={<AdminPage />} />
-              <Route path="gigs/new" element={<AdminGigNewPage />} />
-              <Route path="gigs/:id/edit" element={<AdminGigEditPage />} />
-              <Route path="account" element={<AdminAccountPage />} />
+            <Route index element={<AdminPage />} />
+            <Route path="gigs/new" element={<AdminGigNewPage />} />
+            <Route path="gigs/:id/edit" element={<AdminGigEditPage />} />
+            <Route path="import" element={<AdminImportPage />} />
+            <Route path="account" element={<AdminAccountPage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Routes>

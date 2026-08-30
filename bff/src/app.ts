@@ -8,6 +8,7 @@ import { rateLimit } from './middleware/rateLimit';
 import { requestLog } from './middleware/requestLog';
 import { health } from './routes/health';
 import { gigs } from './routes/gigs';
+import { gigImport } from './routes/import';
 import { siteConfig } from './routes/site_config';
 import { me } from './routes/me';
 
@@ -48,6 +49,7 @@ app.use('/api/v1/*', async (c, next) => {
 // 5) 路由
 app.route('/api/v1', health);
 app.route('/api/v1/gigs', gigs);
+app.route('/api/v1/gigs/import', gigImport);
 app.route('/api/v1/site-config', siteConfig);
 app.route('/api/v1/me', me);
 

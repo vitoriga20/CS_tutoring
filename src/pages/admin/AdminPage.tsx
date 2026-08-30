@@ -74,6 +74,10 @@ export default function AdminPage() {
           <Plus size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />
           发布新单子
         </Link>
+        <Link to="/admin/import" className="btn">
+          <Plus size={14} aria-hidden="true" style={{ verticalAlign: -2, marginRight: 4 }} />
+          批量导入
+        </Link>
         <Link to="/admin/account" className="btn">
           用户中心
         </Link>

@@ -10,6 +10,12 @@ export type District = 'wangcheng' | 'kaifu' | 'yuelu' | 'furong' | 'tianxin' | 
 export type PriceFilter = 'le50' | '50-80' | '80-120' | '120-200' | 'gt200';
 export type GigSort = 'newest' | 'rate_desc';
 
+// 字段级问题（批量导入 SPEC-002 与错误响应 details 共用；specs/gig-import/spec.md §1）
+export interface FieldIssue {
+  field: string;
+  reason: string;
+}
+
 export interface Gig {
   id: string;
   title: string;
@@ -68,4 +74,35 @@ export interface GigListMeta {
 export interface Page<T> {
   data: T[];
   meta: GigListMeta;
+}
+
+// ── 批量导入（SPEC-002，specs/gig-import/spec.md §3） ─────────────
+// 导入草稿：字段可能缺失（null），与 GigCreate 字段集一致
+export interface GigImportDraft {
+  title: string | null;
+  subject: string | null;
+  grade_level: GradeLevel | null;
+  mode: LessonMode;
+  region: string | null;
+  district: District;
+  hourly_rate: number | null;
+  student_gender: StudentGender;
+  student_info: string | null;
+  rate: string | null;
+  schedule: string | null;
+  requirements: string | null;
+  contact_wxid: string | null;
+}
+
+export interface GigImportRow {
+  index: number;
+  draft: GigImportDraft;
+  issues: FieldIssue[];
+  duplicate: boolean;
+  status: 'ok' | 'error';
+}
+
+export interface GigImportCommitResult {
+  created: Gig[];
+  failed: { index: number; code: string; details: FieldIssue[] }[];
 }
